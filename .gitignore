@@ -11,3 +11,5 @@ htmlcov/
 node_modules/
 .hypothesis/
 consensus.egg-info/
+.devdata/
+.env.dev

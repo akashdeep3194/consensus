@@ -11,13 +11,10 @@ from ports.repositories import (
     CommittedEntry,
     ConcurrentModification,
     Draft,
+    RoundClosed,
     RoundNotFound,
     RoundRecord,
 )
-
-
-class RoundClosed(RuntimeError):
-    """The round no longer accepts entries — mirrors the database trigger."""
 
 
 class InMemoryRoundRepository:
@@ -68,6 +65,27 @@ class InMemoryRoundRepository:
             moved = replace(current, status=to)
             self._rounds[round_id] = moved
             return moved
+
+
+    async def seal_with_root(self, round_id: UUID, commitment_root: str) -> RoundRecord:
+        async with self._lock:
+            current = await self.get(round_id)
+            if current.status is not RoundStatus.SEALING:
+                raise ConcurrentModification(
+                    f"round {round_id} is {current.status}, expected sealing"
+                )
+            require_legal(current.status, RoundStatus.SEALED)
+            moved = replace(
+                current, status=RoundStatus.SEALED, commitment_root=commitment_root
+            )
+            self._rounds[round_id] = moved
+            return moved
+
+    async def record_resolution(self, round_id: UUID, winning_number: str) -> None:
+        async with self._lock:
+            self._rounds[round_id] = replace(
+                await self.get(round_id), winning_number=winning_number
+            )
 
 
 class InMemoryDraftRepository:

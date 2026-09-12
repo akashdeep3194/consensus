@@ -8,9 +8,8 @@ param — not a second copy of these assertions.
 If a substitute cannot pass unchanged, it is not a valid substitute.
 """
 
-import asyncio
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -19,7 +18,6 @@ from adapters.memory import (
     InMemoryRoundRepository,
     InMemorySubmissionRepository,
 )
-from adapters.memory.repositories import RoundClosed
 from domain.lifecycle import RoundStatus
 from domain.schedule import schedule_for
 from ports.repositories import (
@@ -28,6 +26,7 @@ from ports.repositories import (
     Draft,
     DraftRepository,
     DraftScanner,
+    RoundClosed,
     RoundNotFound,
     RoundReader,
     RoundRecord,
@@ -35,21 +34,55 @@ from ports.repositories import (
     SubmissionReader,
     SubmissionWriter,
 )
+from tests.conftest import run  # one shared event loop
 
 ANCHOR = datetime(2026, 9, 12, tzinfo=UTC)
 
 
-def run(coro):
-    return asyncio.run(coro)
 
 
-@pytest.fixture(params=["memory"])
+@pytest.fixture(params=["memory", "postgres"])
 def repos(request):
-    """Yields (rounds, drafts, submissions) for each adapter under test."""
+    """Yields (rounds, drafts, submissions) for each adapter under test.
+
+    Adding an adapter means adding a param here — never a second copy of the
+    assertions below. An adapter that cannot pass unchanged is not a substitute.
+    """
     if request.param == "memory":
         rounds = InMemoryRoundRepository()
         return rounds, InMemoryDraftRepository(rounds), InMemorySubmissionRepository(rounds)
-    raise AssertionError(f"unknown adapter {request.param}")
+
+    pool = request.getfixturevalue("pg_pool")
+    from adapters.postgres import (
+        PostgresDraftRepository,
+        PostgresRoundRepository,
+        PostgresSubmissionRepository,
+    )
+
+    run(pool.execute("TRUNCATE submissions, round_drafts, rounds, users CASCADE"))
+    rounds = PostgresRoundRepository(pool)
+    return rounds, PostgresDraftRepository(pool), PostgresSubmissionRepository(pool)
+
+
+def new_user(repos) -> UUID:
+    """A user id that exists in whichever store is under test.
+
+    Postgres enforces a real foreign key to `users`; the in-memory adapter has
+    no such table. The helper hides that difference so the assertions stay
+    identical across adapters.
+    """
+    rounds = repos[0]
+    user_id = uuid4()
+    pool = getattr(rounds, "_pool", None)
+    if pool is not None:
+        run(
+            pool.execute(
+                """INSERT INTO users (user_id, external_id, provider)
+                   VALUES ($1,$2,'test') ON CONFLICT DO NOTHING""",
+                user_id, str(user_id),
+            )
+        )
+    return user_id
 
 
 def make_round(rounds, status=RoundStatus.OPEN, cycle=1):
@@ -121,7 +154,7 @@ def test_live_excludes_revealed_and_voided(repos):
 def test_draft_create_then_update_bumps_version(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds)
-    user = uuid4()
+    user = new_user(repos)
     d1 = run(drafts.upsert(rec.round_id, user, "527", 5, None))
     assert d1.version == 1 and d1.is_complete
     d2 = run(drafts.upsert(rec.round_id, user, "123", 5, d1.version))
@@ -132,7 +165,7 @@ def test_stale_version_is_rejected(repos):
     """Two tabs must not silently overwrite each other (§5.2)."""
     rounds, drafts, _ = repos
     rec = make_round(rounds)
-    user = uuid4()
+    user = new_user(repos)
     d1 = run(drafts.upsert(rec.round_id, user, "527", 5, None))
     run(drafts.upsert(rec.round_id, user, "123", 1, d1.version))
     with pytest.raises(ConcurrentModification):
@@ -143,13 +176,13 @@ def test_updating_a_missing_draft_is_rejected(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds)
     with pytest.raises(ConcurrentModification):
-        run(drafts.upsert(rec.round_id, uuid4(), "527", 5, 1))
+        run(drafts.upsert(rec.round_id, new_user(repos), "527", 5, 1))
 
 
 def test_partial_draft_is_not_complete(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds)
-    d = run(drafts.upsert(rec.round_id, uuid4(), "527", None, None))
+    d = run(drafts.upsert(rec.round_id, new_user(repos), "527", None, None))
     assert not d.is_complete
 
 
@@ -157,8 +190,8 @@ def test_scanner_returns_only_complete_drafts_in_chunks(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds)
     for _ in range(5):
-        run(drafts.upsert(rec.round_id, uuid4(), "527", 5, None))
-    run(drafts.upsert(rec.round_id, uuid4(), "527", None, None))   # incomplete
+        run(drafts.upsert(rec.round_id, new_user(repos), "527", 5, None))
+    run(drafts.upsert(rec.round_id, new_user(repos), "527", None, None))   # incomplete
     assert run(drafts.count_complete(rec.round_id)) == 5
 
     async def collect():
@@ -174,7 +207,7 @@ def test_scan_order_is_deterministic(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds)
     for _ in range(8):
-        run(drafts.upsert(rec.round_id, uuid4(), "527", 5, None))
+        run(drafts.upsert(rec.round_id, new_user(repos), "527", 5, None))
 
     async def ids():
         return [d.user_id async for c in drafts.iter_complete(rec.round_id, 3) for d in c]
@@ -192,14 +225,14 @@ def test_drafts_rejected_once_the_round_stops_accepting(repos):
     ]:
         run(rounds.transition(rec.round_id, frm, to))
     with pytest.raises(RoundClosed):
-        run(drafts.upsert(rec.round_id, uuid4(), "527", 5, None))
+        run(drafts.upsert(rec.round_id, new_user(repos), "527", 5, None))
 
 
 def test_drafts_still_accepted_during_blackout(repos):
     rounds, drafts, _ = repos
     rec = make_round(rounds, status=RoundStatus.OPEN)
     run(rounds.transition(rec.round_id, RoundStatus.OPEN, RoundStatus.BLACKOUT))
-    assert run(drafts.upsert(rec.round_id, uuid4(), "527", 5, None)).is_complete
+    assert run(drafts.upsert(rec.round_id, new_user(repos), "527", 5, None)).is_complete
 
 
 # ── submissions ─────────────────────────────────────────────────────
@@ -207,7 +240,7 @@ def test_commit_allocates_sequential_numbers_from_one(repos):
     rounds, _, subs = repos
     rec = make_round(rounds)
     seqs = [
-        run(subs.commit_entry(rec.round_id, uuid4(), "527", 5, True, None)).commit_sequence
+        run(subs.commit_entry(rec.round_id, new_user(repos), "527", 5, True, None)).commit_sequence
         for _ in range(4)
     ]
     assert seqs == [1, 2, 3, 4]
@@ -216,7 +249,7 @@ def test_commit_allocates_sequential_numbers_from_one(repos):
 def test_one_entry_per_user_per_round(repos):
     rounds, _, subs = repos
     rec = make_round(rounds)
-    user = uuid4()
+    user = new_user(repos)
     run(subs.commit_entry(rec.round_id, user, "527", 5, True, None))
     with pytest.raises(ConcurrentModification):
         run(subs.commit_entry(rec.round_id, user, "123", 1, True, None))
@@ -226,7 +259,7 @@ def test_idempotent_retry_returns_the_same_entry(repos):
     """A network failure after commit must not create a second row (§6.3)."""
     rounds, _, subs = repos
     rec = make_round(rounds)
-    user = uuid4()
+    user = new_user(repos)
     a = run(subs.commit_entry(rec.round_id, user, "527", 5, True, "key-1"))
     b = run(subs.commit_entry(rec.round_id, user, "527", 5, True, "key-1"))
     assert a == b
@@ -243,14 +276,14 @@ def test_commit_rejected_once_the_round_closes(repos):
     ]:
         run(rounds.transition(rec.round_id, frm, to))
     with pytest.raises(RoundClosed):
-        run(subs.commit_entry(rec.round_id, uuid4(), "527", 5, True, None))
+        run(subs.commit_entry(rec.round_id, new_user(repos), "527", 5, True, None))
 
 
 def test_iter_round_yields_commit_sequence_order(repos):
     rounds, _, subs = repos
     rec = make_round(rounds)
     for _ in range(5):
-        run(subs.commit_entry(rec.round_id, uuid4(), "527", 5, False, None))
+        run(subs.commit_entry(rec.round_id, new_user(repos), "527", 5, False, None))
 
     async def collect():
         return [e async for c in subs.iter_round(rec.round_id, 2) for e in c]
@@ -262,7 +295,7 @@ def test_entries_carry_everything_the_engine_needs(repos):
     """The port's data must map onto engine.Submission without a lookup."""
     rounds, _, subs = repos
     rec = make_round(rounds)
-    e = run(subs.commit_entry(rec.round_id, uuid4(), "527", 5, True, None))
+    e = run(subs.commit_entry(rec.round_id, new_user(repos), "527", 5, True, None))
     assert isinstance(e, CommittedEntry)
     assert {"prediction", "vote", "commit_sequence", "mandate_eligible"} <= set(
         CommittedEntry.__slots__

@@ -26,6 +26,14 @@ class RoundNotFound(LookupError):
     pass
 
 
+class RoundClosed(RuntimeError):
+    """The round no longer accepts entries (§6.2).
+
+    Part of the contract, not an adapter detail: every adapter must raise this
+    same type, so callers never branch on which implementation is installed.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class RoundRecord:
     round_id: UUID
@@ -90,6 +98,18 @@ class RoundWriter(Protocol):
         must be one operation or two workers can both believe they won.
         """
         ...
+
+    async def seal_with_root(self, round_id: UUID, commitment_root: str) -> RoundRecord:
+        """SEALING -> SEALED, recording the commitment in the same operation.
+
+        One step, not two. The root only becomes valid at the instant the input
+        set is final, and a round must never exist in a sealed state without the
+        commitment that covers it — a crash between two statements would leave
+        exactly that hole.
+        """
+        ...
+
+    async def record_resolution(self, round_id: UUID, winning_number: str) -> None: ...
 
 
 # ── drafts ─────────────────────────────────────────────────────────────────

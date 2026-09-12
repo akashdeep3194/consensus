@@ -22,6 +22,7 @@ from engine.rank import validate_prediction, validate_vote
 from engine.version import ALGORITHM_VERSION
 
 SEPARATOR = "|"
+#: UUIDs (with hyphens) satisfy this; the separator can never appear inside a field.
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 # Domain-separation prefixes keep a leaf hash from ever colliding with an

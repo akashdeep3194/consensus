@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consensus 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="mark">◈</span>
+    <span>CONSENSUS <b>3D</b></span>
+  </div>
+  <div class="who" id="who"></div>
+</header>
+
+<main class="shell">
+
+  <!-- sign in -->
+  <section id="gate" class="panel gate" hidden>
+    <h1>Pick a handle</h1>
+    <p class="sub">No password. Your handle is your identity for this round.</p>
+    <form id="signin" class="row">
+      <input id="handle" maxlength="32" placeholder="e.g. akash" autocomplete="off" required>
+      <button class="btn btn--go" type="submit">Enter</button>
+    </form>
+  </section>
+
+  <!-- game -->
+  <div id="game" hidden>
+
+    <section class="panel phase" id="phasebar">
+      <div class="phase-left">
+        <div class="lbl">Round <span id="cycle">—</span></div>
+        <div class="phase-name" id="phase">—</div>
+      </div>
+      <div class="phase-right">
+        <div class="lbl" id="cd-label">Next phase in</div>
+        <div class="countdown" id="countdown">--:--:--</div>
+      </div>
+      <div class="track" id="track"></div>
+    </section>
+
+    <div class="cols">
+      <!-- entry -->
+      <section class="panel">
+        <h2>Your entry</h2>
+
+        <div class="field">
+          <div class="lbl">Prediction — three distinct digits</div>
+          <div class="slots" id="slots">
+            <input class="slot" id="p0" inputmode="numeric" maxlength="1" aria-label="first digit">
+            <input class="slot" id="p1" inputmode="numeric" maxlength="1" aria-label="second digit">
+            <input class="slot" id="p2" inputmode="numeric" maxlength="1" aria-label="third digit">
+          </div>
+          <div class="hint" id="predhint">The winning number always has three distinct digits.</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Your vote — one digit</div>
+          <div class="votes" id="votes"></div>
+          <div class="hint">Your vote shapes the outcome. It need not appear in your prediction.</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn--lock" id="lock" disabled>Lock in</button>
+          <span class="saved" id="saved"></span>
+        </div>
+        <div class="note" id="mandnote"></div>
+        <div class="err" id="err" hidden></div>
+      </section>
+
+      <!-- standings -->
+      <section class="panel">
+        <h2>Standings <span class="tag" id="standtag"></span></h2>
+        <div id="stand"></div>
+        <div class="projected" id="projected"></div>
+      </section>
+    </div>
+
+    <!-- result -->
+    <section class="panel result" id="resultPanel" hidden>
+      <h2>Result</h2>
+      <div id="resultBody"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <span>PostgreSQL defines what happened. The game rules define who won.</span>
+  <button class="btn btn--ghost" id="advance" title="Run the scheduler sweep now">Advance clock</button>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

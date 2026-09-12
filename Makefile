@@ -21,6 +21,18 @@ fmt:           ## ruff format
 golden:        ## regenerate frozen golden vectors (bump algorithm_version first!)
 	.venv/bin/python -m tests.make_golden
 
+run:           ## start the game (reuses existing data)
+	./scripts/dev.sh
+
+demo:          ## reset, seed a played round + a live one, and start
+	./scripts/dev.sh --fresh
+
+stop:          ## stop the api server
+	@pkill -f 'uvicorn api.main' 2>/dev/null || true
+
+arch:          ## verify the dependency arrows point inward
+	.venv/bin/python tools/check_layering.py
+
 up:            ## start postgres + valkey
 	docker compose up -d
 
