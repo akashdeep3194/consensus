@@ -1,0 +1,118 @@
+/* ── Design tokens ────────────────────────────────────────────────────────
+   The only file that names a colour, a typeface or a distance.
+   Everything else styles through these; reskinning the product means
+   rewriting this file and nothing else.
+
+   Palette "Brass & Ink": warm near-black grounds, bone type, one brass
+   accent reserved for the three seated digits and live state. Semantic
+   colours (claret, sage) are separate from the accent and never stand in
+   for it.
+   ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  /* Grounds — neutrals carry a 40° warm bias toward the accent, so greys
+     read as chosen rather than inherited. */
+  --ground:      #f1eee6;
+  --surface:     #fbf9f4;
+  --surface-2:   #f6f3ec;
+  --sunk:        #e7e2d6;
+
+  /* Rules */
+  --line:        #ddd7c8;
+  --line-2:      #c9c1ae;
+
+  /* Type */
+  --ink:         #191712;
+  --ink-2:       #5d5648;
+  --ink-3:       #8a8271;
+
+  /* Accent — brass. Deepened on light grounds to hold contrast. */
+  --accent:      #8a6a21;
+  --accent-ink:  #fbf9f4;   /* type that sits on --accent */
+  --accent-wash: #efe6cf;
+  --accent-line: #d8c48d;
+
+  /* Semantics, kept off the accent hue */
+  --claret:      #9d3f36;
+  --claret-wash: #f7e6e3;
+  --claret-line: #e4bdb7;
+  --sage:        #4f6f42;
+
+  /* Type roles */
+  --ceremony: "Bodoni Moda", "Didot", "Times New Roman", serif;
+  --ui:       "Schibsted Grotesk", -apple-system, "Segoe UI", sans-serif;
+  --data:     "Azeret Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Type scale — 1.2 minor third off 15px, plus two display steps */
+  --t-micro: 10.5px;
+  --t-fine:  12px;
+  --t-small: 13px;
+  --t-base:  15px;
+  --t-lead:  17px;
+  --t-h:     21px;
+  --t-display: 30px;
+  --t-hero:  64px;
+
+  --track-label: .14em;   /* letter-spacing for uppercase labels */
+
+  /* Space — one 4px scale. Panels share --pad so inner edges align
+     across columns. */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+  --pad: 26px;
+  --measure: 1140px;
+
+  --radius:    4px;   /* restrained — this is an instrument, not a card deck */
+  --radius-lg: 6px;
+  --shadow: 0 1px 2px rgb(25 23 18 / .06), 0 8px 24px -12px rgb(25 23 18 / .18);
+}
+
+/* Dark — the shipped default. Redefines tokens only; no component ever
+   declares a colour inside a theme block. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground:      #14120e;
+    --surface:     #1c1915;
+    --surface-2:   #221e19;
+    --sunk:        #100e0b;
+    --line:        #2a2621;
+    --line-2:      #3c362d;
+    --ink:         #ede7da;
+    --ink-2:       #a79e8c;
+    --ink-3:       #756d5e;
+    --accent:      #c8a45c;
+    --accent-ink:  #17140e;
+    --accent-wash: #2a2317;
+    --accent-line: #4d4028;
+    --claret:      #c9756a;
+    --claret-wash: #2c1917;
+    --claret-line: #4d2a26;
+    --sage:        #8aa87a;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 12px 32px -16px rgb(0 0 0 / .7);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground:      #14120e;
+  --surface:     #1c1915;
+  --surface-2:   #221e19;
+  --sunk:        #100e0b;
+  --line:        #2a2621;
+  --line-2:      #3c362d;
+  --ink:         #ede7da;
+  --ink-2:       #a79e8c;
+  --ink-3:       #756d5e;
+  --accent:      #c8a45c;
+  --accent-ink:  #17140e;
+  --accent-wash: #2a2317;
+  --accent-line: #4d4028;
+  --claret:      #c9756a;
+  --claret-wash: #2c1917;
+  --claret-line: #4d2a26;
+  --sage:        #8aa87a;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 12px 32px -16px rgb(0 0 0 / .7);
+}

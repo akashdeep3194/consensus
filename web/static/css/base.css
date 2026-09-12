@@ -1,0 +1,95 @@
+/* ── Base ─────────────────────────────────────────────────────────────────
+   Element defaults, the page shell and the shared typographic primitives.
+   No component lives here.
+   ──────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Components set `display`, which outranks the UA's `[hidden]{display:none}`.
+   Hiding must win regardless of what a component declares. */
+[hidden] { display: none !important; }
+
+html, body { margin: 0; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: var(--t-base);
+  line-height: 1.55;
+  font-feature-settings: "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The one place a horizontal gutter is declared. */
+.shell {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--s5);
+}
+
+main.shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  padding-block: var(--s6) var(--s7);
+}
+
+@media (max-width: 560px) {
+  .shell { padding-inline: var(--s4); }
+  :root { --pad: 20px; }
+}
+
+/* ── Typographic primitives ─────────────────────────────────────────────── */
+
+/* Ceremony: reserved for display sizes, where a didone's hairlines survive. */
+.ceremony {
+  font-family: var(--ceremony);
+  font-weight: 500;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+}
+
+/* Instrument: every figure that is data. */
+.data {
+  font-family: var(--data);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+
+/* Section label — small caps-ish, tracked. */
+.label {
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.note   { font-size: var(--t-fine); color: var(--ink-2); line-height: 1.6; }
+.note--quiet { color: var(--ink-3); }
+.note b { color: var(--accent); font-weight: 600; }
+
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-weight: 600; }
+
+a { color: var(--accent); }
+
+:where(button, input, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}

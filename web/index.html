@@ -3,89 +3,120 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Consensus 3D</title>
+<meta name="theme-color" content="#14120e">
+<meta name="description" content="A daily reckoning. Ten digits compete, three are seated, and the number is published.">
+<title>Consensus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;700&family=Bodoni+Moda:opsz,wght@6..96,500..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
 </head>
 <body>
 
-<header class="top">
-  <div class="brand">
-    <span class="mark">◈</span>
-    <span>CONSENSUS <b>3D</b></span>
+<header class="masthead">
+  <div class="shell masthead__inner">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand__word">Consensus<em>·</em>3D</span>
+    </div>
+    <div class="who" id="who"></div>
   </div>
-  <div class="who" id="who"></div>
 </header>
 
 <main class="shell">
 
   <!-- sign in -->
   <section id="gate" class="panel gate" hidden>
-    <h1>Pick a handle</h1>
-    <p class="sub">No password. Your handle is your identity for this round.</p>
-    <form id="signin" class="row">
-      <input id="handle" maxlength="32" placeholder="e.g. akash" autocomplete="off" required>
-      <button class="btn btn--go" type="submit">Enter</button>
+    <div class="panel__head"><h1>Claim a handle</h1></div>
+    <p class="note">No password. Your handle is how the board will name you when
+      the number is published.</p>
+    <form id="signin" class="inline-form">
+      <input id="handle" class="field__input" maxlength="32" placeholder="e.g. akash"
+             autocomplete="off" required>
+      <button class="btn btn--primary" type="submit">Enter</button>
     </form>
   </section>
 
   <!-- game -->
   <div id="game" hidden>
 
-    <section class="panel phase" id="phasebar">
-      <div class="phase-left">
-        <div class="lbl">Round <span id="cycle">—</span></div>
-        <div class="phase-name" id="phase">—</div>
+    <section class="band">
+      <div>
+        <div class="label">Round</div>
+        <div class="band__round">
+          <span class="band__cycle" id="cycle">—</span>
+          <span id="phase">—</span>
+          <span class="pill" id="phasePill"></span>
+        </div>
       </div>
-      <div class="phase-right">
-        <div class="lbl" id="cd-label">Next phase in</div>
-        <div class="countdown" id="countdown">--:--:--</div>
+      <div class="band__clock">
+        <div class="label" id="cdLabel">Next phase in</div>
+        <div class="band__count" id="countdown">--:--:--</div>
       </div>
       <div class="track" id="track"></div>
     </section>
 
     <div class="cols">
+
       <!-- entry -->
       <section class="panel">
-        <h2>Your entry</h2>
+        <div class="panel__head"><h2 class="panel__title">Your entry</h2></div>
 
         <div class="field">
-          <div class="lbl">Prediction — three distinct digits</div>
+          <div class="label">Your slate</div>
           <div class="slots" id="slots">
-            <input class="slot" id="p0" inputmode="numeric" maxlength="1" aria-label="first digit">
-            <input class="slot" id="p1" inputmode="numeric" maxlength="1" aria-label="second digit">
-            <input class="slot" id="p2" inputmode="numeric" maxlength="1" aria-label="third digit">
+            <label class="slot">
+              <input class="slot__input" id="p0" inputmode="numeric" maxlength="1"
+                     placeholder="–" aria-label="first place digit">
+              <span class="slot__cap">P₁</span>
+            </label>
+            <label class="slot">
+              <input class="slot__input" id="p1" inputmode="numeric" maxlength="1"
+                     placeholder="–" aria-label="second place digit">
+              <span class="slot__cap">P₂</span>
+            </label>
+            <label class="slot">
+              <input class="slot__input" id="p2" inputmode="numeric" maxlength="1"
+                     placeholder="–" aria-label="third place digit">
+              <span class="slot__cap">P₃</span>
+            </label>
           </div>
-          <div class="hint" id="predhint">The winning number always has three distinct digits.</div>
+          <p class="note note--quiet" id="predhint">Order counts. P₁ is the digit you
+            back to finish first.</p>
         </div>
 
         <div class="field">
-          <div class="lbl">Your vote — one digit</div>
-          <div class="votes" id="votes"></div>
-          <div class="hint">Your vote shapes the outcome. It need not appear in your prediction.</div>
+          <div class="label">Your vote</div>
+          <div class="keypad" id="keypad"></div>
+          <p class="note note--quiet">One digit, and it moves the real count.
+            It need not appear in your slate.</p>
         </div>
 
         <div class="actions">
-          <button class="btn btn--lock" id="lock" disabled>Lock in</button>
-          <span class="saved" id="saved"></span>
+          <button class="btn btn--primary" id="lock" type="button" disabled>Lock in</button>
+          <span class="status" id="status"></span>
         </div>
-        <div class="note" id="mandnote"></div>
-        <div class="err" id="err" hidden></div>
+        <p class="note" id="mandnote"></p>
+        <div class="alert" id="err" hidden></div>
       </section>
 
       <!-- standings -->
       <section class="panel">
-        <h2>Standings <span class="tag" id="standtag"></span></h2>
-        <div id="stand"></div>
+        <div class="panel__head">
+          <h2 class="panel__title">The room</h2>
+          <span class="pill" id="standtag"></span>
+        </div>
+        <div class="tally" id="tally"></div>
         <div class="projected" id="projected"></div>
       </section>
+
     </div>
 
     <!-- result -->
-    <section class="panel result" id="resultPanel" hidden>
-      <h2>Result</h2>
+    <section class="panel" id="resultPanel" hidden>
+      <div class="panel__head"><h2 class="panel__title" id="resultTitle">The result</h2></div>
       <div id="resultBody"></div>
     </section>
 
@@ -93,10 +124,13 @@
 </main>
 
 <footer class="foot">
-  <span>PostgreSQL defines what happened. The game rules define who won.</span>
-  <button class="btn btn--ghost" id="advance" title="Run the scheduler sweep now">Advance clock</button>
+  <div class="shell foot__inner">
+    <span>Every round is committed before it is counted.</span>
+    <button class="btn btn--ghost" id="advance" type="button"
+            title="Run the scheduler sweep now">Advance clock</button>
+  </div>
 </footer>
 
-<script src="/static/app.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
