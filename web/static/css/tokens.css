@@ -83,7 +83,7 @@
   --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
   --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
   --pad: 26px;
-  --measure: 1140px;
+  --measure: 680px;   /* one column: top bar, tabs and cards share an edge */
 
   --radius:    4px;   /* restrained — this is an instrument, not a card deck */
   --radius-lg: 6px;

@@ -1,5 +1,5 @@
-// The reveal. The one ceremonial surface in the product: a published
-// result, set like a printed one, rather than another dashboard figure.
+// The reveal. The one ceremonial surface in the product: a published result,
+// set like a printed one rather than another dashboard figure.
 import { $, esc } from "../dom.js";
 
 const TIERS = ["TRIFECTA", "BOXED", "TWO", "ONE", "NONE"];
@@ -12,8 +12,12 @@ const stat = (key, value, accent = false) => `
     <div class="stat__v${accent ? " stat__v--accent" : ""}">${esc(value)}</div>
   </div>`;
 
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 export function createResult() {
-  const panel = $("resultPanel");
   const title = $("resultTitle");
   const body = $("resultBody");
 
@@ -27,20 +31,22 @@ export function createResult() {
 
   const scorecard = (mine) => !mine ? "" : `
     <div class="scorecard">
-      ${stat("Your slate", mine.prediction)}
+      ${stat("Your slate", mine.prediction.split("").join(" "))}
       ${stat("Outcome", mine.tier, true)}
       ${stat("Points", `+${mine.points}`)}
-      ${stat("Your vote", `${mine.vote} → finished ${ordinal(mine.vote_finished)}`)}
+      ${stat("Your vote", `${mine.vote} — finished ${ordinal(mine.vote_finished)}`)}
       ${stat("Slate commanded", pct(mine.vote_share))}
       ${stat("Mandate rank", mine.mandate_rank ? `#${mine.mandate_rank}` : "—")}
     </div>`;
 
   const mandateBoard = (rows, handle) => !rows.length ? "" : `
-    <div class="field">
-      <div class="panel__head"><h3 class="panel__title">The Mandate</h3></div>
-      <p class="note note--quiet">Ranked by position-weighted score
-        <span class="formula">3·C[P₁] + 2·C[P₂] + 1·C[P₃]</span> — two players whose
-        digits drew the same total are separated by getting the order right.</p>
+    <section class="board">
+      <header class="step__head">
+        <h3 class="step__title step__title--sm">The Mandate</h3>
+        <p class="step__sub">Ranked by position-weighted score
+          <span class="formula">3·C[1st] + 2·C[2nd] + 1·C[3rd]</span> — two players whose
+          digits drew the same total are separated by getting the order right.</p>
+      </header>
       <div class="table-wrap"><table>
         <thead><tr><th>#</th><th>Player</th><th>Slate</th><th>Score</th>
           <th>Commanded</th><th>Outcome</th></tr></thead>
@@ -48,14 +54,14 @@ export function createResult() {
           <tr class="${p.handle === handle ? "is-me" : ""}">
             <td>${p.rank}</td>
             <td class="is-name">${esc(p.handle)}</td>
-            <td>${esc(p.prediction)}</td>
+            <td>${esc(p.prediction.split("").join(" "))}</td>
             <td><b>${p.mandate_score}</b></td>
             <td>${pct(p.vote_share)}</td>
             <td>${esc(p.tier)}</td>
           </tr>`).join("")}
         </tbody>
       </table></div>
-    </div>`;
+    </section>`;
 
   return {
     render(result, mine, { handle, isCurrent }) {
@@ -71,13 +77,12 @@ export function createResult() {
         ${scorecard(mine)}
         <div class="tiers">${tiers(result.tier_histogram, mine)}</div>
         ${mandateBoard(result.mandate_board, handle)}`;
-      panel.hidden = false;
     },
-    hide() { panel.hidden = true; },
+    empty(message) {
+      title.textContent = "Result";
+      body.innerHTML = `<div class="blind">
+        <div class="blind__head">Nothing published yet</div>
+        <p class="note note--quiet">${esc(message)}</p></div>`;
+    },
   };
-}
-
-function ordinal(n) {
-  const s = ["th", "st", "nd", "rd"], v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }

@@ -15,112 +15,150 @@
 </head>
 <body>
 
-<header class="masthead">
-  <div class="shell masthead__inner">
+<header class="topbar">
+  <div class="shell topbar__masthead">
     <div class="brand">
       <span class="brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="brand__word">Consensus <em>3D</em></span>
     </div>
     <div class="who" id="who"></div>
   </div>
+  <div class="shell topbar__status">
+    <div class="topbar__round">
+      <span class="label">Round <span class="topbar__cycle" id="cycle">—</span></span>
+      <span class="pill" id="phasePill"></span>
+    </div>
+    <div class="topbar__clock">
+      <span class="label" id="cdLabel">&nbsp;</span>
+      <span class="topbar__count" id="countdown">--:--:--</span>
+    </div>
+  </div>
+  <div class="progress" title="Round progress">
+    <i class="progress__fill" id="progressFill"></i>
+    <span class="progress__gate" id="progressGate"></span>
+  </div>
 </header>
 
-<main class="shell">
-
-  <!-- sign in -->
-  <section id="gate" class="panel gate" hidden>
-    <div class="panel__head"><h1>Claim a handle</h1></div>
-    <p class="note">No password. Your handle is how the board will name you when
-      the number is published.</p>
+<!-- sign in -->
+<main class="shell stage" id="gate" hidden>
+  <section class="panel card">
+    <h1 class="step__title">Claim a handle</h1>
+    <p class="step__sub">Ten digits compete each round. The three most-voted become the
+      number. Predict which three, in order — and cast the one vote that helps decide it.</p>
     <form id="signin" class="inline-form">
-      <input id="handle" class="field__input" maxlength="32" placeholder="e.g. akash"
+      <input id="handle" class="field__input" maxlength="32" placeholder="Pick a handle"
              autocomplete="off" required>
       <button class="btn btn--primary" type="submit">Enter</button>
     </form>
+    <p class="note note--quiet">No password. Your handle is how the board will name you.</p>
   </section>
+</main>
 
-  <!-- game -->
-  <div id="game" hidden>
+<!-- game -->
+<div id="game" hidden>
 
-    <section class="band">
-      <div>
-        <div class="label">Round <span class="band__cycle" id="cycle">—</span></div>
-        <div class="band__round">
-          <span id="phase">—</span>
-          <span class="pill" id="phasePill"></span>
+  <nav class="shell tabs" id="tabs">
+    <button class="tab is-active" type="button" data-view="play">Play</button>
+    <button class="tab" type="button" data-view="room">The room</button>
+    <button class="tab" type="button" data-view="result">Result</button>
+  </nav>
+
+  <main class="shell stage">
+
+    <!-- ── play ─────────────────────────────────────────────────────── -->
+    <section class="view" id="view-play">
+
+      <div class="card" id="step-slate">
+        <header class="step__head">
+          <div class="label">Step 1 of 2 — your prediction</div>
+          <h2 class="step__title">Pick your slate</h2>
+          <p class="step__sub">Three digits, ranked. Which three finish top, and in
+            what order? Order is scored, so first place is worth the most.</p>
+        </header>
+        <div class="slots" id="slots">
+          <button class="slot" type="button" data-pos="0">
+            <span class="slot__box" id="slot0">–</span><span class="slot__cap">1st</span>
+          </button>
+          <button class="slot" type="button" data-pos="1">
+            <span class="slot__box" id="slot1">–</span><span class="slot__cap">2nd</span>
+          </button>
+          <button class="slot" type="button" data-pos="2">
+            <span class="slot__box" id="slot2">–</span><span class="slot__cap">3rd</span>
+          </button>
+        </div>
+        <div class="keypad" id="slateKeys"></div>
+        <p class="note note--quiet" id="slateHint">Tap a digit to place it. Tap a slot to clear it.</p>
+        <div class="step__foot">
+          <button class="btn btn--primary" id="toVote" type="button" disabled>Next</button>
         </div>
       </div>
-      <div class="band__clock">
-        <div class="label" id="cdLabel">Next phase in</div>
-        <div class="band__count" id="countdown">--:--:--</div>
+
+      <div class="card" id="step-vote" hidden>
+        <header class="step__head">
+          <div class="label">Step 2 of 2 — your influence</div>
+          <h2 class="step__title">Cast your vote</h2>
+          <p class="step__sub">One digit. This is the part that actually moves the
+            count — everyone's votes decide the number. It does not have to be on
+            your slate.</p>
+        </header>
+        <div class="keypad keypad--lg" id="voteKeys"></div>
+        <div class="leaders" id="leaders"></div>
+        <div class="step__foot">
+          <button class="btn" id="backToSlate" type="button">Back</button>
+          <button class="btn btn--primary" id="toReview" type="button" disabled>Review</button>
+        </div>
       </div>
-      <div class="track" id="track"></div>
-    </section>
 
-    <div class="cols">
-
-      <!-- entry -->
-      <section class="panel">
-        <div class="panel__head"><h2 class="panel__title">Your entry</h2></div>
-
-        <div class="field">
-          <div class="label">Your slate</div>
-          <div class="slots" id="slots">
-            <label class="slot">
-              <input class="slot__input" id="p0" inputmode="numeric" maxlength="1"
-                     placeholder="–" aria-label="first place digit">
-              <span class="slot__cap">P₁</span>
-            </label>
-            <label class="slot">
-              <input class="slot__input" id="p1" inputmode="numeric" maxlength="1"
-                     placeholder="–" aria-label="second place digit">
-              <span class="slot__cap">P₂</span>
-            </label>
-            <label class="slot">
-              <input class="slot__input" id="p2" inputmode="numeric" maxlength="1"
-                     placeholder="–" aria-label="third place digit">
-              <span class="slot__cap">P₃</span>
-            </label>
-          </div>
-          <p class="note note--quiet" id="predhint">Order counts. P₁ is the digit you
-            back to finish first.</p>
-        </div>
-
-        <div class="field">
-          <div class="label">Your vote</div>
-          <div class="keypad" id="keypad"></div>
-          <p class="note note--quiet">One digit, and it moves the real count.
-            It need not appear in your slate.</p>
-        </div>
-
-        <div class="actions">
-          <button class="btn btn--primary" id="lock" type="button" disabled>Lock in</button>
+      <div class="card" id="step-review" hidden>
+        <header class="step__head">
+          <h2 class="step__title" id="reviewTitle">Ready to lock</h2>
+          <p class="step__sub" id="reviewSub"></p>
+        </header>
+        <div class="receipt" id="receipt"></div>
+        <p class="note" id="mandnote"></p>
+        <div class="step__foot">
+          <button class="btn btn--primary" id="lock" type="button">Lock in</button>
+          <button class="btn" id="edit" type="button">Edit</button>
           <span class="status" id="status"></span>
         </div>
-        <p class="note" id="mandnote"></p>
-        <div class="alert" id="err" hidden></div>
-      </section>
+      </div>
 
-      <!-- standings -->
-      <section class="panel">
-        <div class="panel__head">
-          <h2 class="panel__title">The room</h2>
-          <span class="pill" id="standtag"></span>
-        </div>
-        <div class="tally" id="tally"></div>
-        <div class="projected" id="projected"></div>
-      </section>
+      <div class="card" id="step-closed" hidden>
+        <header class="step__head">
+          <h2 class="step__title" id="closedTitle">Entries are closed</h2>
+          <p class="step__sub" id="closedSub"></p>
+        </header>
+        <div class="receipt" id="closedReceipt"></div>
+      </div>
 
-    </div>
-
-    <!-- result -->
-    <section class="panel" id="resultPanel" hidden>
-      <div class="panel__head"><h2 class="panel__title" id="resultTitle">The result</h2></div>
-      <div id="resultBody"></div>
+      <div class="alert" id="err" hidden></div>
     </section>
 
-  </div>
-</main>
+    <!-- ── the room ─────────────────────────────────────────────────── -->
+    <section class="view" id="view-room" hidden>
+      <div class="card">
+        <header class="step__head">
+          <h2 class="step__title">The room</h2>
+          <p class="step__sub">Every vote cast so far. The three seated digits are the
+            number if the round sealed right now.</p>
+        </header>
+        <div class="tally" id="tally"></div>
+        <div class="projected" id="projected"></div>
+      </div>
+    </section>
+
+    <!-- ── result ───────────────────────────────────────────────────── -->
+    <section class="view" id="view-result" hidden>
+      <div class="card">
+        <header class="step__head">
+          <h2 class="step__title" id="resultTitle">Result</h2>
+        </header>
+        <div id="resultBody"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
 
 <footer class="foot">
   <div class="shell foot__inner">

@@ -35,13 +35,7 @@ body {
   padding-inline: var(--s5);
 }
 
-main.shell {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s5);
-  padding-block: var(--s6) var(--s7);
-}
+main.shell { flex: 1; padding-block: var(--s6) var(--s7); }
 
 @media (max-width: 560px) {
   .shell { padding-inline: var(--s4); }
