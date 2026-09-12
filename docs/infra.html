@@ -1,0 +1,549 @@
+<title>Consensus 3D Infrastructure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+/* Palette inherited from the game console (web/static/app.css) so this page
+   reads as part of the product, with a light set added for artifact themes. */
+:root{
+  --ground:#eef1f5; --panel:#ffffff; --sunk:#e5eaf0; --raise:#f7f9fb;
+  --ink:#101720; --ink-2:#48555f; --muted:#6d7b88;
+  --rule:#d6dde5; --rule-2:#bfcad5;
+  --accent:#1f6fd0; --accent-dim:#dfeafa; --accent-ink:#17559f;
+  --good:#12864c; --good-dim:#dff2e7;
+  --warn:#8a5a12; --warn-dim:#faeedb;
+  --bad:#b23c3c; --bad-dim:#fae4e4;
+  --shell:1080px;
+  --f:"Libre Franklin",-apple-system,"Segoe UI",sans-serif;
+  --m:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0d1014; --panel:#151a20; --sunk:#10151a; --raise:#1b222a;
+    --ink:#e9eef4; --ink-2:#9aa7b4; --muted:#6e7c8a;
+    --rule:#222a33; --rule-2:#2e3842;
+    --accent:#4f9df0; --accent-dim:#16283c; --accent-ink:#7bb7f5;
+    --good:#2fbf71; --good-dim:#12251b;
+    --warn:#e0a33c; --warn-dim:#271f12;
+    --bad:#e05c5c; --bad-dim:#2a1618;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0d1014; --panel:#151a20; --sunk:#10151a; --raise:#1b222a;
+  --ink:#e9eef4; --ink-2:#9aa7b4; --muted:#6e7c8a;
+  --rule:#222a33; --rule-2:#2e3842;
+  --accent:#4f9df0; --accent-dim:#16283c; --accent-ink:#7bb7f5;
+  --good:#2fbf71; --good-dim:#12251b;
+  --warn:#e0a33c; --warn-dim:#271f12;
+  --bad:#e05c5c; --bad-dim:#2a1618;
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground); color:var(--ink); font-family:var(--f);
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased}
+.shell{max-width:var(--shell); margin-inline:auto; padding-inline:22px; padding-block:0}
+@media (max-width:540px){ .shell{padding-inline:16px} }
+p{margin:0}
+h1,h2,h3,h4{margin:0; text-wrap:balance}
+.mono{font-family:var(--m)}
+.num{font-family:var(--m); font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+
+.lbl{font-size:10.5px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted)}
+
+/* masthead */
+.mast{padding-block:44px 24px; border-bottom:1px solid var(--rule)}
+.mast .brand{display:flex; align-items:center; gap:10px; font-weight:800;
+  letter-spacing:.16em; font-size:12px; margin-bottom:20px}
+.mast .brand i{color:var(--accent); font-style:normal; font-size:16px}
+.mast h1{font-size:clamp(28px,5vw,44px); font-weight:800; letter-spacing:-.028em;
+  line-height:1.06; margin-bottom:14px}
+.mast p{color:var(--ink-2); max-width:62ch; font-size:17px}
+
+/* live strip */
+.live{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--rule); border:1px solid var(--rule); margin-top:26px}
+.live div{background:var(--panel); padding:13px 15px}
+.live .k{font-size:10px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:4px}
+.live .v{font-family:var(--m); font-size:14px; font-weight:700; color:var(--ink)}
+.live .v.on{color:var(--good)}
+.live .v.on::before{content:"● "; font-size:9px; vertical-align:2px}
+
+section{padding-block:42px; border-bottom:1px solid var(--rule)}
+.head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px}
+.head h2{font-size:clamp(20px,3vw,26px); font-weight:700; letter-spacing:-.02em}
+.sub{color:var(--ink-2); margin-bottom:26px; max-width:66ch; font-size:15px}
+
+/* layer diagram */
+.layers{display:flex; flex-direction:column; gap:10px; margin-bottom:18px}
+.layer{display:grid; grid-template-columns:132px 1fr auto; gap:18px;
+  align-items:center; background:var(--panel); border:1px solid var(--rule-2);
+  padding:14px 18px}
+.layer .name{font-family:var(--m); font-size:14px; font-weight:700; color:var(--ink)}
+.layer .name small{display:block; font-family:var(--f); font-weight:500;
+  font-size:11px; color:var(--muted); letter-spacing:.02em; margin-top:2px}
+.layer .body{font-size:13.5px; color:var(--ink-2); line-height:1.5}
+.layer .imports{font-family:var(--m); font-size:11px; color:var(--muted);
+  white-space:nowrap; text-align:right}
+.layer .imports b{color:var(--accent); font-weight:700}
+.layer--pure{border-left:3px solid var(--good)}
+.layer--io{border-left:3px solid var(--accent)}
+@media (max-width:720px){
+  .layer{grid-template-columns:1fr; gap:8px}
+  .layer .imports{text-align:left}
+}
+.arrowrule{display:flex; align-items:center; gap:14px; padding:14px 18px;
+  background:var(--accent-dim); border:1px solid var(--rule-2); font-size:13.5px;
+  color:var(--ink); margin-bottom:18px}
+.arrowrule .glyph{font-family:var(--m); font-weight:700; color:var(--accent);
+  font-size:15px; white-space:nowrap}
+.arrowrule code{font-family:var(--m); font-size:12px}
+
+/* round timeline */
+.tl{margin-top:8px}
+.tl-track{display:flex; gap:3px; margin-bottom:9px}
+.tl-track div{height:8px; border-radius:2px}
+.tl-marks{display:flex; gap:3px}
+.tl-marks div{font-family:var(--m); font-size:11px; color:var(--muted);
+  line-height:1.4; padding-top:2px}
+.tl-marks b{display:block; font-family:var(--f); font-size:11.5px; font-weight:700;
+  color:var(--ink); letter-spacing:.04em; text-transform:uppercase}
+@media (max-width:640px){ .tl-marks div{font-size:10px} .tl-marks b{font-size:10px} }
+
+/* flow */
+.flow{display:grid; gap:1px; background:var(--rule); border:1px solid var(--rule)}
+.step{display:grid; grid-template-columns:34px 176px 1fr; gap:16px;
+  background:var(--panel); padding:14px 18px; align-items:start}
+.step .n{font-family:var(--m); font-size:12px; font-weight:700; color:var(--accent);
+  padding-top:2px}
+.step .w{font-family:var(--m); font-size:12.5px; color:var(--ink); font-weight:500;
+  line-height:1.5; word-break:break-word}
+.step .d{font-size:13.5px; color:var(--ink-2); line-height:1.5}
+.step .d b{color:var(--ink); font-weight:600}
+@media (max-width:720px){ .step{grid-template-columns:26px 1fr; gap:6px 12px}
+  .step .d{grid-column:2} }
+
+/* tables */
+.tw{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-size:14px; min-width:420px}
+th{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+  text-align:left; padding:0 14px 9px 0; border-bottom:1px solid var(--rule-2);
+  white-space:nowrap; font-weight:700}
+td{padding:10px 14px 10px 0; border-bottom:1px solid var(--rule);
+  vertical-align:top; color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+td:first-child,th:first-child{padding-left:0}
+td b{color:var(--ink); font-weight:600}
+td.mono,td .mono{font-family:var(--m); font-size:12.5px; color:var(--ink)}
+
+.pill{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; padding:3px 8px; white-space:nowrap; border-radius:3px}
+.pill--on{background:var(--good-dim); color:var(--good)}
+.pill--no{background:var(--bad-dim); color:var(--bad)}
+.pill--part{background:var(--warn-dim); color:var(--warn)}
+
+/* stat row */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:1px; background:var(--rule); border:1px solid var(--rule)}
+.stat{background:var(--panel); padding:15px 16px}
+.stat .v{font-family:var(--m); font-size:26px; font-weight:700; color:var(--ink);
+  line-height:1; font-variant-numeric:tabular-nums}
+.stat .k{font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); margin-top:6px}
+
+/* two-up */
+.two{display:grid; grid-template-columns:1fr 1fr; gap:22px}
+@media (max-width:760px){ .two{grid-template-columns:1fr} }
+.box{background:var(--panel); border:1px solid var(--rule-2); padding:20px}
+.box h3{font-size:15px; font-weight:700; margin-bottom:10px; letter-spacing:-.01em}
+.box p{font-size:13.5px; color:var(--ink-2); line-height:1.55}
+.box p + p{margin-top:10px}
+.box b{color:var(--ink); font-weight:600}
+.box code{font-family:var(--m); font-size:12px; background:var(--sunk);
+  padding:1px 5px; border-radius:3px; color:var(--ink)}
+
+pre{background:var(--sunk); border:1px solid var(--rule); padding:16px 18px;
+  overflow-x:auto; font-family:var(--m); font-size:12.5px; line-height:1.65;
+  color:var(--ink); margin:0}
+pre .c{color:var(--muted)}
+pre .a{color:var(--accent)}
+
+.foot{padding-block:34px 52px; color:var(--muted); font-size:13px;
+  display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+
+<div class="shell">
+
+  <header class="mast">
+    <div class="brand"><i>◈</i> CONSENSUS 3D · INFRASTRUCTURE</div>
+    <h1>Five runtime dependencies,<br>one authoritative database.</h1>
+    <p>
+      The whole system is a FastAPI process, a PostgreSQL database and a static console.
+      Nothing else is running, and nothing else needs to be — the parts that would normally
+      carry state are deliberately absent, because Postgres is the only thing allowed to
+      decide what happened.
+    </p>
+
+    <div class="live">
+      <div><div class="k">API</div><div class="v on">localhost:8099</div></div>
+      <div><div class="k">Database</div><div class="v">PostgreSQL 17.5</div></div>
+      <div><div class="k">Python</div><div class="v">3.13.5</div></div>
+      <div><div class="k">Current round</div><div class="v">#1 · open</div></div>
+      <div><div class="k">Tests</div><div class="v">202 passing</div></div>
+    </div>
+  </header>
+
+  <!-- ── STACK ─────────────────────────────────────────── -->
+  <section>
+    <div class="head"><span class="lbl">What it's built on</span><h2>Stack</h2></div>
+    <p class="sub">
+      Versions are the ones installed and running right now, not floors from a
+      requirements file.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Layer</th><th>Choice</th><th>Version</th><th>Why this one</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Database</b></td><td class="mono">PostgreSQL</td><td class="mono">17.5</td>
+            <td>Authoritative for every piece of state that can change an outcome. Constraints and triggers do real work here, not just documentation.</td>
+          </tr>
+          <tr>
+            <td><b>API</b></td><td class="mono">FastAPI</td><td class="mono">0.141.1</td>
+            <td>Thin: parse, authorise, delegate to a service, serialise. No game rules live in it.</td>
+          </tr>
+          <tr>
+            <td><b>DB driver</b></td><td class="mono">asyncpg</td><td class="mono">0.31.0</td>
+            <td>Explicit SQL over an ORM — the transactional surface is small and every statement should be readable in full.</td>
+          </tr>
+          <tr>
+            <td><b>Validation</b></td><td class="mono">Pydantic</td><td class="mono">2.13.5</td>
+            <td>Request shapes. The engine validates again anyway; neither trusts the other.</td>
+          </tr>
+          <tr>
+            <td><b>Server</b></td><td class="mono">Uvicorn</td><td class="mono">0.30+</td>
+            <td>ASGI. One process today; stateless, so it scales horizontally when needed.</td>
+          </tr>
+          <tr>
+            <td><b>Console</b></td><td class="mono">vanilla JS + CSS</td><td class="mono">—</td>
+            <td>No build step, no framework. The API is UI-agnostic, so a Next.js client can replace this without touching the server.</td>
+          </tr>
+          <tr>
+            <td><b>Resolution engine</b></td><td class="mono">pure Python</td><td class="mono">stdlib only</td>
+            <td>Zero dependencies by design — the same module an independent auditor would run.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two" style="margin-top:24px">
+      <div class="box">
+        <h3>Runtime dependencies, in full</h3>
+        <pre><span class="c"># pyproject.toml [project]</span>
+fastapi
+uvicorn[standard]
+asyncpg
+pydantic
+itsdangerous</pre>
+        <p style="margin-top:12px">
+          That is the entire list. <code>engine/</code> and <code>domain/</code> import
+          <b>nothing outside the standard library</b>, and CI fails the build if that ever
+          stops being true.
+        </p>
+      </div>
+      <div class="box">
+        <h3>What is deliberately not here</h3>
+        <p>
+          <b>No Redis yet.</b> It only ever gets derived data — leaderboards, rate limits,
+          caches. Adding it early would invite something authoritative to drift into it.
+        </p>
+        <p>
+          <b>No Temporal, no Celery.</b> There are roughly four scheduled transitions per
+          round and the database already decides which are legal. A second state machine
+          would be a weaker copy of one that has to exist anyway.
+        </p>
+        <p>
+          <b>No Docker required.</b> <code>make demo</code> runs a local PostgreSQL cluster
+          under <code>.devdata/</code>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LAYERS ────────────────────────────────────────── -->
+  <section>
+    <div class="head"><span class="lbl">Architecture</span><h2>Four layers, arrows inward</h2></div>
+    <p class="sub">
+      The rule that keeps this honest is mechanical, not cultural:
+      <span class="mono">tools/check_layering.py</span> walks every import and fails CI on
+      a violation.
+    </p>
+
+    <div class="arrowrule">
+      <span class="glyph">api → services → ports → domain · engine</span>
+      <span>A layer may import inward, never outward. <code>asyncpg</code> appears only under <code>adapters/</code>.</span>
+    </div>
+
+    <div class="layers">
+      <div class="layer layer--pure">
+        <div class="name">engine/ <small>533 lines · 8 files</small></div>
+        <div class="body">Resolution maths. Ranking, tiers, mandate score, canonical encoding, Merkle root. Pure functions, no I/O, no clock.</div>
+        <div class="imports">imports <b>stdlib only</b></div>
+      </div>
+      <div class="layer layer--pure">
+        <div class="name">domain/ <small>210 lines · 3 files</small></div>
+        <div class="body">Round state machine and scheduling. Which transitions are legal, when each phase falls, who qualifies for the Mandate board.</div>
+        <div class="imports">imports <b>stdlib only</b></div>
+      </div>
+      <div class="layer layer--io">
+        <div class="name">ports/ <small>233 lines · 3 files</small></div>
+        <div class="body">Protocols the services depend on, split by role — a reader cannot write, and the sealing worker's bulk scan is unreachable from the request path.</div>
+        <div class="imports">imports <b>domain · engine</b></div>
+      </div>
+      <div class="layer layer--io">
+        <div class="name">adapters/ <small>699 lines · 6 files</small></div>
+        <div class="body">PostgreSQL and in-memory implementations. Both pass the same conformance suite unchanged; driver errors are translated to contract exceptions here and nowhere else.</div>
+        <div class="imports">imports <b>ports · domain · engine</b></div>
+      </div>
+      <div class="layer layer--io">
+        <div class="name">services/ <small>437 lines · 5 files</small></div>
+        <div class="body">Use cases: draft editing, lock-in, sealing, resolution, scoring. Composed entirely from ports, so they never learn which adapter is installed.</div>
+        <div class="imports">imports <b>ports</b></div>
+      </div>
+      <div class="layer layer--io">
+        <div class="name">api/ <small>651 lines · 4 files</small></div>
+        <div class="body">18 HTTP endpoints plus the composition root — the one file that knows Postgres is the adapter in use.</div>
+        <div class="imports">imports <b>services · ports</b></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v">3,361</div><div class="k">lines of app code</div></div>
+      <div class="stat"><div class="v">1,626</div><div class="k">lines of tests</div></div>
+      <div class="stat"><div class="v">18</div><div class="k">endpoints</div></div>
+      <div class="stat"><div class="v">202</div><div class="k">tests</div></div>
+      <div class="stat"><div class="v">5</div><div class="k">dependencies</div></div>
+    </div>
+  </section>
+
+  <!-- ── DATABASE ──────────────────────────────────────── -->
+  <section>
+    <div class="head"><span class="lbl">Source of truth</span><h2>The database does real work</h2></div>
+    <p class="sub">
+      Every invariant the engine enforces in memory is enforced <em>again</em> in the
+      schema, because application code is the part most likely to be wrong.
+    </p>
+
+    <div class="stats" style="margin-bottom:24px">
+      <div class="stat"><div class="v">8</div><div class="k">tables</div></div>
+      <div class="stat"><div class="v">69</div><div class="k">constraints</div></div>
+      <div class="stat"><div class="v">23</div><div class="k">indexes</div></div>
+      <div class="stat"><div class="v">7</div><div class="k">triggers</div></div>
+      <div class="stat"><div class="v">3</div><div class="k">domains</div></div>
+    </div>
+
+    <div class="two">
+      <div class="box">
+        <h3>Types that carry the rules</h3>
+        <pre>CREATE DOMAIN <span class="a">prediction_slate</span> AS char(3)
+  CHECK (VALUE ~ '^[0-9]{3}$')
+  CHECK (<span class="c">-- all three distinct</span>
+    substr(VALUE,1,1) &lt;&gt; substr(VALUE,2,1) AND
+    substr(VALUE,2,1) &lt;&gt; substr(VALUE,3,1) AND
+    substr(VALUE,1,1) &lt;&gt; substr(VALUE,3,1));</pre>
+        <p style="margin-top:12px">
+          "Three distinct digits" is defined <b>once</b>, as a type. Every column using it
+          inherits the rule, so drafts and submissions cannot disagree about what a valid
+          slate is.
+        </p>
+      </div>
+      <div class="box">
+        <h3>Guards that cannot be bypassed</h3>
+        <p><b>Committed entries are immutable</b> — a trigger rejects any edit to prediction, vote or sequence. Voiding is the one permitted mutation, and it never changes content.</p>
+        <p><b>Submissions are append-only</b> — deletes raise, always.</p>
+        <p><b>A closed round rejects writes</b> through every path, checked against live round status rather than trusted from the caller.</p>
+        <p><b>Illegal transitions raise</b> — legal edges live in a <code>round_transitions</code> table, so adding a phase is data, not a code change.</p>
+      </div>
+    </div>
+
+    <p class="sub" style="margin:22px 0 0">
+      All 18 of these are exercised by <span class="mono">db/tests/constraints_test.sql</span>,
+      which asserts each one <em>rejects for the right reason</em> — a constraint nobody has
+      watched fire is only a comment.
+    </p>
+  </section>
+
+  <!-- ── ROUND ─────────────────────────────────────────── -->
+  <section>
+    <div class="head"><span class="lbl">The unit of work</span><h2>One round, end to end</h2></div>
+    <p class="sub">
+      30 hours from open to reveal, on a 24-hour cadence — so two rounds are always live at
+      once, by design.
+    </p>
+
+    <div class="tl">
+      <div class="tl-track">
+        <div style="flex:12; background:var(--accent)"></div>
+        <div style="flex:11; background:var(--accent-dim)"></div>
+        <div style="flex:1; background:var(--warn)"></div>
+        <div style="flex:6; background:var(--rule-2)"></div>
+      </div>
+      <div class="tl-marks">
+        <div style="flex:12"><b>T+0 Open</b>drafts editable · standings public</div>
+        <div style="flex:11"><b>T+12 Mandate</b>later locks forfeit Board&nbsp;B</div>
+        <div style="flex:1"><b>T+23</b>dark</div>
+        <div style="flex:6"><b>T+24 Seal</b>resolve · reveal at T+30</div>
+      </div>
+    </div>
+
+    <div class="flow" style="margin-top:30px">
+      <div class="step">
+        <div class="n">01</div>
+        <div class="w">PUT /rounds/{id}/draft</div>
+        <div class="d">Durable draft write with an <b>optimistic version</b>. Two tabs holding the same version — the second gets a 409, never a silent overwrite. Returns only after Postgres commits.</div>
+      </div>
+      <div class="step">
+        <div class="n">02</div>
+        <div class="w">POST /rounds/{id}/lock</div>
+        <div class="d">One transaction: allocate <b>commit_sequence</b> under an advisory lock, insert the immutable submission, delete the draft. Carries an idempotency key, so a retry after a network failure returns the existing entry rather than creating a second.</div>
+      </div>
+      <div class="step">
+        <div class="n">03</div>
+        <div class="w">GET /rounds/{id}/standings</div>
+        <div class="d">Live vote distribution — the coordination signal the game is built around. Returns <b>nothing at all</b> from blackout onward, rather than something subtly different.</div>
+      </div>
+      <div class="step">
+        <div class="n">04</div>
+        <div class="w">seal → SEALING</div>
+        <div class="d">The <b>atomic cutoff</b>. One small transition establishes it; everything after is resumable, so a worker crash mid-seal is harmless.</div>
+      </div>
+      <div class="step">
+        <div class="n">05</div>
+        <div class="w">materialise drafts</div>
+        <div class="d">Every complete remaining draft auto-commits in chunks, scanned in <b>(updated_at, user_id)</b> order so an auditor replaying the round derives the same sequence numbers we did.</div>
+      </div>
+      <div class="step">
+        <div class="n">06</div>
+        <div class="w">SEALING → SEALED + root</div>
+        <div class="d">Status and Merkle root are written in <b>one UPDATE</b> — a round can never exist sealed-but-uncommitted, and the root can never appear while materialisation is still adding rows.</div>
+      </div>
+      <div class="step">
+        <div class="n">07</div>
+        <div class="w">engine.resolve()</div>
+        <div class="d">The pure function runs over the immutable set: winning number, tiers, both boards, audit ledger. Same code path an independent verifier would use.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── DEV vs PROD ───────────────────────────────────── -->
+  <section>
+    <div class="head"><span class="lbl">Deployment</span><h2>What runs now, what production needs</h2></div>
+    <p class="sub">
+      Nothing is deployed. This is an honest gap list, not a roadmap of things half-built.
+    </p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Concern</th><th>Today</th><th>Production</th><th style="width:1%">State</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Database</b></td>
+            <td class="mono">local cluster in .devdata/</td>
+            <td>Managed Postgres, primary + read replica for history</td>
+            <td><span class="pill pill--part">Swap DSN</span></td>
+          </tr>
+          <tr>
+            <td><b>API process</b></td>
+            <td class="mono">one uvicorn on :8099</td>
+            <td>Containers behind a load balancer — it is stateless, so this is arithmetic</td>
+            <td><span class="pill pill--part">Ready</span></td>
+          </tr>
+          <tr>
+            <td><b>Identity</b></td>
+            <td class="mono">dev handles, cookie session</td>
+            <td>Google + Apple OAuth, one account per verified identity</td>
+            <td><span class="pill pill--no">Not built</span></td>
+          </tr>
+          <tr>
+            <td><b>Phase transitions</b></td>
+            <td class="mono">on request + admin sweep</td>
+            <td>Postgres-backed scheduler with advisory locks</td>
+            <td><span class="pill pill--part">Partial</span></td>
+          </tr>
+          <tr>
+            <td><b>Derived reads</b></td>
+            <td class="mono">computed per request</td>
+            <td>Valkey cache + CDN; a reveal payload is identical for everyone</td>
+            <td><span class="pill pill--no">Not built</span></td>
+          </tr>
+          <tr>
+            <td><b>Anti-abuse</b></td>
+            <td class="mono">none</td>
+            <td>Turnstile, rate limits, sybil heuristics, entry voiding</td>
+            <td><span class="pill pill--no">Not built</span></td>
+          </tr>
+          <tr>
+            <td><b>Public audit</b></td>
+            <td class="mono">root computed, not published</td>
+            <td>Root published at seal to an append-only log + a verifier CLI</td>
+            <td><span class="pill pill--no">Not built</span></td>
+          </tr>
+          <tr>
+            <td><b>Migrations</b></td>
+            <td class="mono">numbered SQL + checksums</td>
+            <td>Same. Editing an applied migration is already a hard error</td>
+            <td><span class="pill pill--on">Done</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box" style="margin-top:24px">
+      <h3>The one that actually matters next</h3>
+      <p>
+        <b>Reveal fanout.</b> Every player asks for the result at the same instant, and the
+        global payload — winning number, histogram, audit ledger, root — is <b>identical for
+        all of them</b>. Resolution has a six-hour window to precompute it, so it should be
+        written once as a static object and served from a CDN, with personal result cards
+        precomputed as rows. That turns the hardest scaling problem in the system into one
+        cached file plus cheap keyed reads.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── RUN IT ────────────────────────────────────────── -->
+  <section style="border-bottom:0">
+    <div class="head"><span class="lbl">Run it</span><h2>Two commands</h2></div>
+    <pre style="margin-top:8px"><span class="c"># one-time</span>
+make venv
+
+<span class="c"># reset, seed a finished round and a live one, start the server</span>
+make demo
+<span class="c">→ http://localhost:8099/dev/login?handle=you</span></pre>
+
+    <div class="tw" style="margin-top:24px">
+      <table>
+        <thead><tr><th>Command</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">make run</td><td>Start without wiping existing data</td></tr>
+          <tr><td class="mono">make test</td><td>202 tests — engine, domain, adapters, HTTP</td></tr>
+          <tr><td class="mono">make db-test</td><td>Apply migrations, then prove each constraint rejects</td></tr>
+          <tr><td class="mono">make arch</td><td>Verify the dependency arrows still point inward</td></tr>
+          <tr><td class="mono">make lint</td><td>ruff across every package</td></tr>
+          <tr><td class="mono">make stop</td><td>Stop the API</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>Ruleset V1.1 · algorithm_version 1.1.0</span>
+    <span class="mono">PostgreSQL defines what happened.</span>
+  </div>
+
+</div>
