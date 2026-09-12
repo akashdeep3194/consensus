@@ -1,0 +1,661 @@
+{
+  "ruleset_version": "1.1",
+  "algorithm_version": "1.1.0",
+  "note": "Frozen expected output. Changing these requires an ALGORITHM_VERSION bump.",
+  "cases": [
+    {
+      "name": "empty-round",
+      "entries": [],
+      "winning_number": [
+        0,
+        1,
+        2
+      ],
+      "counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "full_ranking": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 0,
+        "BOXED": 0,
+        "TWO": 0,
+        "ONE": 0,
+        "NONE": 0
+      },
+      "mandate_board": [],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 0,
+          "votes": 0,
+          "runner_up_digit": 1,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 2,
+          "digit": 1,
+          "votes": 0,
+          "runner_up_digit": 2,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 3,
+          "digit": 2,
+          "votes": 0,
+          "runner_up_digit": 3,
+          "margin": 0,
+          "decided_by_tie_break": true
+        }
+      ],
+      "commitment_root": "d74e5b163379942ee174e3cfb63fd9406497a3dce2d091bcc948d553997366a6"
+    },
+    {
+      "name": "ruleset-example-903",
+      "entries": [
+        {
+          "vote": 9,
+          "prediction": [
+            9,
+            0,
+            3
+          ]
+        },
+        {
+          "vote": 9,
+          "prediction": [
+            0,
+            9,
+            3
+          ]
+        },
+        {
+          "vote": 0,
+          "prediction": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "vote": 3,
+          "prediction": [
+            5,
+            6,
+            7
+          ]
+        }
+      ],
+      "winning_number": [
+        9,
+        0,
+        3
+      ],
+      "counts": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      "full_ranking": [
+        9,
+        0,
+        3,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 1,
+        "BOXED": 1,
+        "TWO": 0,
+        "ONE": 1,
+        "NONE": 1
+      },
+      "mandate_board": [
+        {
+          "submission_id": "s000",
+          "score": 9,
+          "rank": 1
+        },
+        {
+          "submission_id": "s002",
+          "score": 1,
+          "rank": 2
+        }
+      ],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 9,
+          "votes": 2,
+          "runner_up_digit": 0,
+          "margin": 1,
+          "decided_by_tie_break": false
+        },
+        {
+          "position": 2,
+          "digit": 0,
+          "votes": 1,
+          "runner_up_digit": 3,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 3,
+          "digit": 3,
+          "votes": 1,
+          "runner_up_digit": 1,
+          "margin": 1,
+          "decided_by_tie_break": false
+        }
+      ],
+      "commitment_root": "1c35520197a48a8c742ebeb76a275cf2a8f63f65ac894076c46293c7976609c3"
+    },
+    {
+      "name": "tie-to-lower-digit",
+      "entries": [
+        {
+          "vote": 5,
+          "prediction": [
+            5,
+            2,
+            7
+          ]
+        },
+        {
+          "vote": 2,
+          "prediction": [
+            2,
+            5,
+            7
+          ]
+        },
+        {
+          "vote": 5,
+          "prediction": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "vote": 2,
+          "prediction": [
+            4,
+            5,
+            6
+          ]
+        }
+      ],
+      "winning_number": [
+        2,
+        5,
+        0
+      ],
+      "counts": [
+        0,
+        0,
+        2,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "full_ranking": [
+        2,
+        5,
+        0,
+        1,
+        3,
+        4,
+        6,
+        7,
+        8,
+        9
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 0,
+        "BOXED": 0,
+        "TWO": 2,
+        "ONE": 2,
+        "NONE": 0
+      },
+      "mandate_board": [
+        {
+          "submission_id": "s000",
+          "score": 10,
+          "rank": 1
+        },
+        {
+          "submission_id": "s002",
+          "score": 4,
+          "rank": 2
+        }
+      ],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 2,
+          "votes": 2,
+          "runner_up_digit": 5,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 2,
+          "digit": 5,
+          "votes": 2,
+          "runner_up_digit": 0,
+          "margin": 2,
+          "decided_by_tie_break": false
+        },
+        {
+          "position": 3,
+          "digit": 0,
+          "votes": 0,
+          "runner_up_digit": 1,
+          "margin": 0,
+          "decided_by_tie_break": true
+        }
+      ],
+      "commitment_root": "b93caa316de227cb1f1e99d2e665246648c247cd8371a4aa6cddeab864865989"
+    },
+    {
+      "name": "all-same-vote",
+      "entries": [
+        {
+          "vote": 7,
+          "prediction": [
+            7,
+            1,
+            2
+          ]
+        },
+        {
+          "vote": 7,
+          "prediction": [
+            1,
+            7,
+            2
+          ]
+        },
+        {
+          "vote": 7,
+          "prediction": [
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "winning_number": [
+        7,
+        0,
+        1
+      ],
+      "counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0
+      ],
+      "full_ranking": [
+        7,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        8,
+        9
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 0,
+        "BOXED": 0,
+        "TWO": 2,
+        "ONE": 0,
+        "NONE": 1
+      },
+      "mandate_board": [
+        {
+          "submission_id": "s000",
+          "score": 9,
+          "rank": 1
+        },
+        {
+          "submission_id": "s002",
+          "score": 0,
+          "rank": 2
+        }
+      ],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 7,
+          "votes": 3,
+          "runner_up_digit": 0,
+          "margin": 3,
+          "decided_by_tie_break": false
+        },
+        {
+          "position": 2,
+          "digit": 0,
+          "votes": 0,
+          "runner_up_digit": 1,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 3,
+          "digit": 1,
+          "votes": 0,
+          "runner_up_digit": 2,
+          "margin": 0,
+          "decided_by_tie_break": true
+        }
+      ],
+      "commitment_root": "b6736b89afff25c36e6149094b6d4b6996748edbbc8be9f4315aed3837ed2940"
+    },
+    {
+      "name": "every-digit-once",
+      "entries": [
+        {
+          "vote": 0,
+          "prediction": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "vote": 1,
+          "prediction": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "vote": 2,
+          "prediction": [
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "vote": 3,
+          "prediction": [
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "vote": 4,
+          "prediction": [
+            4,
+            5,
+            6
+          ]
+        },
+        {
+          "vote": 5,
+          "prediction": [
+            5,
+            6,
+            7
+          ]
+        },
+        {
+          "vote": 6,
+          "prediction": [
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "vote": 7,
+          "prediction": [
+            7,
+            8,
+            9
+          ]
+        },
+        {
+          "vote": 8,
+          "prediction": [
+            8,
+            9,
+            0
+          ]
+        },
+        {
+          "vote": 9,
+          "prediction": [
+            9,
+            0,
+            1
+          ]
+        }
+      ],
+      "winning_number": [
+        0,
+        1,
+        2
+      ],
+      "counts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "full_ranking": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 1,
+        "BOXED": 0,
+        "TWO": 2,
+        "ONE": 2,
+        "NONE": 5
+      },
+      "mandate_board": [
+        {
+          "submission_id": "s000",
+          "score": 6,
+          "rank": 1
+        },
+        {
+          "submission_id": "s002",
+          "score": 6,
+          "rank": 1
+        },
+        {
+          "submission_id": "s004",
+          "score": 6,
+          "rank": 1
+        },
+        {
+          "submission_id": "s006",
+          "score": 6,
+          "rank": 1
+        },
+        {
+          "submission_id": "s008",
+          "score": 6,
+          "rank": 1
+        }
+      ],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 0,
+          "votes": 1,
+          "runner_up_digit": 1,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 2,
+          "digit": 1,
+          "votes": 1,
+          "runner_up_digit": 2,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 3,
+          "digit": 2,
+          "votes": 1,
+          "runner_up_digit": 3,
+          "margin": 0,
+          "decided_by_tie_break": true
+        }
+      ],
+      "commitment_root": "376dda9101d3a230d22a3c570ae6392805983c78c1d6ee20982bb34767030b5f"
+    },
+    {
+      "name": "single-entry",
+      "entries": [
+        {
+          "vote": 4,
+          "prediction": [
+            4,
+            0,
+            1
+          ]
+        }
+      ],
+      "winning_number": [
+        4,
+        0,
+        1
+      ],
+      "counts": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "full_ranking": [
+        4,
+        0,
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "tier_histogram": {
+        "TRIFECTA": 1,
+        "BOXED": 0,
+        "TWO": 0,
+        "ONE": 0,
+        "NONE": 0
+      },
+      "mandate_board": [
+        {
+          "submission_id": "s000",
+          "score": 3,
+          "rank": 1
+        }
+      ],
+      "audit": [
+        {
+          "position": 1,
+          "digit": 4,
+          "votes": 1,
+          "runner_up_digit": 0,
+          "margin": 1,
+          "decided_by_tie_break": false
+        },
+        {
+          "position": 2,
+          "digit": 0,
+          "votes": 0,
+          "runner_up_digit": 1,
+          "margin": 0,
+          "decided_by_tie_break": true
+        },
+        {
+          "position": 3,
+          "digit": 1,
+          "votes": 0,
+          "runner_up_digit": 2,
+          "margin": 0,
+          "decided_by_tie_break": true
+        }
+      ],
+      "commitment_root": "234e01b3a64c172ffd3a3f8e7582d3ccd24d0ea57b3ecc6c40615486223af747"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  engine:
+    name: engine — correctness gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - name: engine imports nothing outside the stdlib
+        run: python -c "import engine, sys; print('engine loaded with', len(sys.modules), 'modules')"
+      - run: ruff check engine tests
+      - name: full suite including the exhaustive sweep
+        run: pytest -q

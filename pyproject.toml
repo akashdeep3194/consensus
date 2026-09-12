@@ -1,0 +1,27 @@
+[project]
+name = "consensus"
+version = "0.1.0"
+description = "Project Consensus 3D — deterministic social prediction game"
+requires-python = ">=3.12"
+dependencies = []                      # engine/ MUST stay dependency-free
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "hypothesis>=6.100", "ruff>=0.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["engine"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
