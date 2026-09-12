@@ -24,7 +24,7 @@ VALUES ('11111111-1111-1111-1111-111111111111', 'ext-1', 'google'),
 
 INSERT INTO rounds (round_id, cycle_number, status, opens_at, mandate_deadline,
                     blackout_at, seals_at, reveals_at, ruleset_version, algorithm_version)
-VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 1, 'open',
+VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 999000001, 'open',
         '2026-09-12T00:00Z', '2026-09-12T12:00Z', '2026-09-12T23:00Z',
         '2026-09-13T00:00Z', '2026-09-13T06:00Z', '1.1', '1.1.0');
 
@@ -42,7 +42,7 @@ SELECT must_fail($$INSERT INTO round_drafts (round_id,user_id,vote) VALUES
 \echo 'rounds — phase ordering and state machine'
 SELECT must_fail($$INSERT INTO rounds (round_id,cycle_number,opens_at,mandate_deadline,
   blackout_at,seals_at,reveals_at,ruleset_version,algorithm_version) VALUES
-  ('aaaaaaaa-0000-0000-0000-000000000009',9,'2026-09-12T00:00Z','2026-09-11T00:00Z',
+  ('aaaaaaaa-0000-0000-0000-000000000009',999000009,'2026-09-12T00:00Z','2026-09-11T00:00Z',
    '2026-09-12T23:00Z','2026-09-13T00:00Z','2026-09-13T06:00Z','1.1','1.1.0')$$,
   'mandate deadline before open');
 SELECT must_fail($$UPDATE rounds SET status='revealed'
@@ -109,7 +109,7 @@ SELECT must_fail($$INSERT INTO submissions (submission_id,round_id,user_id,predi
   ('bbbbbbbb-0000-0000-0000-000000000004','aaaaaaaa-0000-0000-0000-000000000001',
    '22222222-2222-2222-2222-222222222222','345',3,4,'manual',false)$$,
   'submission written to a sealed round');
-SELECT must_fail($$UPDATE rounds SET cycle_number=99
+SELECT must_fail($$UPDATE rounds SET cycle_number=999000099
   WHERE round_id='aaaaaaaa-0000-0000-0000-000000000001'$$,
   'mutating a sealed round''s parameters');
 

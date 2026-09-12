@@ -15,7 +15,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   PSQL=(psql "$DATABASE_URL")
 else
   : "${PGHOST:?set DATABASE_URL, or PGHOST/PGPORT for a local cluster}"
-  PSQL=(psql -h "$PGHOST" -p "${PGPORT:-5432}" -U "${PGUSER:-consensus}" -d "${PGDATABASE:-consensus}")
+  PSQL=(psql -h "$PGHOST" -p "${PGPORT:-5432}" -U "${PGUSER:-consensus}" -d "${PGDATABASE:-consensus_test}")
 fi
 
 echo "==> migrations"

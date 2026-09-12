@@ -15,9 +15,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def client(request):
-    if not (os.environ.get("DATABASE_URL") or os.environ.get("PGHOST")):
-        pytest.skip("no database configured")
+def client(pg_pool):
+    """Runs against the isolated test database, never the dev one."""
     os.environ["DEV_LOGIN"] = "1"
     os.environ.setdefault("DEMO_ROUND_MINUTES", "60")
 
@@ -143,6 +142,7 @@ def test_full_round_seals_resolves_and_scores(client):
     assert len(set(sealed["winning_number"])) == 3, "always three distinct digits"
     assert len(sealed["commitment_root"]) == 64
     assert sealed["total_submissions"] == 9, "incomplete drafts auto-commit at seal"
+    assert sealed["auto_committed"] == 4, "the four unlocked drafts commit at seal"
 
     dark = client.get(f"/api/rounds/{rid}/standings").json()
     assert dark["visible"] is False, "standings must close once the round is sealed"
