@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.canonical import canonical_submission, leaf_hash, merkle_root
+from engine.errors import InvalidSubmissionSet
 from engine.mandate import mandate_score, vote_share
 from engine.rank import full_ranking, validate_prediction, validate_vote, winning_number
 from engine.tiers import Tier, tier_of
@@ -108,11 +109,70 @@ def _audit(counts: Sequence[int], ranking: Sequence[int]) -> list[AuditSlot]:
     return slots
 
 
+def validate_submission_set(round_id: str, submissions: Sequence[Submission]) -> None:
+    """Reject any set that cannot resolve to a single reproducible answer.
+
+    These are the ruleset's structural invariants. The engine enforces them as a
+    last line of defence: a violating set would otherwise resolve to a
+    wrong-but-plausible result rather than failing.
+    """
+    seen_sub: dict[str, int] = {}
+    seen_user: dict[str, int] = {}
+    seen_seq: dict[int, int] = {}
+    for i, s in enumerate(submissions):
+        if s.round_id != round_id:
+            raise InvalidSubmissionSet(
+                f"submission {s.submission_id!r} belongs to round {s.round_id!r}, "
+                f"not {round_id!r} — the commitment would cover a different round"
+            )
+        if s.submission_id in seen_sub:
+            raise InvalidSubmissionSet(
+                f"duplicate submission_id {s.submission_id!r} at indices "
+                f"{seen_sub[s.submission_id]} and {i}"
+            )
+        if s.user_id in seen_user:
+            raise InvalidSubmissionSet(
+                f"user {s.user_id!r} has more than one entry (indices "
+                f"{seen_user[s.user_id]} and {i}) — one entry per account per round"
+            )
+        if s.commit_sequence in seen_seq:
+            raise InvalidSubmissionSet(
+                f"duplicate commit_sequence {s.commit_sequence} at indices "
+                f"{seen_seq[s.commit_sequence]} and {i} — leaf order would be ambiguous "
+                f"and the commitment root would not be reproducible"
+            )
+        seen_sub[s.submission_id] = i
+        seen_user[s.user_id] = i
+        seen_seq[s.commit_sequence] = i
+
+
 def resolve(round_id: str, submissions: Sequence[Submission]) -> RoundResult:
-    """Resolve a sealed round. Deterministic and order-independent."""
+    """Resolve a sealed round. Deterministic and independent of argument order."""
+    validate_submission_set(round_id, submissions)
+
     counts = tally(submissions)
     winner = winning_number(counts)
     ranking = full_ranking(counts)
+
+    # commit_sequence is unique (validated above), so this order is total and is
+    # the single authoritative order for both leaves and tie-broken board rows.
+    ordered = sorted(submissions, key=lambda s: s.commit_sequence)
+
+    scores = {s.submission_id: mandate_score(s.prediction, counts) for s in ordered}
+
+    # Board B: eligible entries only, ranked by weighted score. Equal scores share
+    # a rank (competition ranking) — consistent with the no-tie-break invariant.
+    board_order = sorted(
+        (s for s in ordered if s.mandate_eligible),
+        key=lambda s: (-scores[s.submission_id], s.commit_sequence),
+    )
+    ranks: dict[str, int] = {}
+    prev_score, prev_rank = None, 0
+    for i, s in enumerate(board_order, start=1):
+        score = scores[s.submission_id]
+        rank = prev_rank if score == prev_score else i
+        ranks[s.submission_id] = rank
+        prev_score, prev_rank = score, rank
 
     players = [
         PlayerResult(
@@ -121,36 +181,17 @@ def resolve(round_id: str, submissions: Sequence[Submission]) -> RoundResult:
             prediction=s.prediction,
             vote=s.vote,
             tier=tier_of(s.prediction, winner),
-            mandate_score=mandate_score(s.prediction, counts),
+            mandate_score=scores[s.submission_id],
             vote_share=vote_share(s.prediction, counts),
-            mandate_rank=None,
+            mandate_rank=ranks.get(s.submission_id),
         )
-        for s in sorted(submissions, key=lambda s: s.commit_sequence)
+        for s in ordered
     ]
+    by_id = {p.submission_id: p for p in players}
 
     histogram = dict.fromkeys(Tier, 0)
     for p in players:
         histogram[p.tier] += 1
-
-    # Board B: eligible entries only, ranked by weighted score. Equal scores share
-    # a rank (competition ranking) — consistent with the no-tie-break invariant.
-    eligible_ids = {s.submission_id for s in submissions if s.mandate_eligible}
-    board = sorted(
-        (p for p in players if p.submission_id in eligible_ids),
-        key=lambda p: -p.mandate_score,
-    )
-    ranked_board, prev_score, prev_rank = [], None, 0
-    for i, p in enumerate(board, start=1):
-        rank = prev_rank if p.mandate_score == prev_score else i
-        ranked = PlayerResult(
-            p.submission_id, p.user_id, p.prediction, p.vote,
-            p.tier, p.mandate_score, p.vote_share, rank,
-        )
-        ranked_board.append(ranked)
-        prev_score, prev_rank = p.mandate_score, rank
-
-    by_id = {p.submission_id: p for p in ranked_board}
-    players = [by_id.get(p.submission_id, p) for p in players]
 
     root = merkle_root(
         leaf_hash(
@@ -158,7 +199,7 @@ def resolve(round_id: str, submissions: Sequence[Submission]) -> RoundResult:
                 s.round_id, s.submission_id, s.prediction, s.vote, s.commit_sequence
             )
         )
-        for s in sorted(submissions, key=lambda s: s.commit_sequence)
+        for s in ordered
     )
 
     return RoundResult(
@@ -169,7 +210,7 @@ def resolve(round_id: str, submissions: Sequence[Submission]) -> RoundResult:
         full_ranking=ranking,
         players=players,
         tier_histogram=histogram,
-        mandate_board=ranked_board,
+        mandate_board=[by_id[s.submission_id] for s in board_order],
         audit=_audit(counts, ranking),
         commitment_root=root,
         winners=[p for p in players if p.tier is Tier.TRIFECTA],

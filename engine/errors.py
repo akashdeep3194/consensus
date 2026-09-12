@@ -15,3 +15,11 @@ class InvalidPrediction(EngineError):
 
 class InvalidVote(EngineError):
     """A vote is not a single digit in 0-9."""
+
+
+class InvalidSubmissionSet(EngineError):
+    """The committed submission set violates a structural invariant.
+
+    Raised rather than silently resolving: a malformed set would produce a
+    wrong-but-plausible result, which is the worst possible failure here.
+    """

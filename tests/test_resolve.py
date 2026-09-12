@@ -142,3 +142,86 @@ def test_prediction_with_repeated_digits_is_rejected_at_construction():
 
     with pytest.raises(InvalidPrediction):
         sub(1, (1, 1, 2), 0)
+
+
+# ── structural invariants of the committed set ──────────────────────
+# Regression tests. Each of these silently produced a wrong-but-plausible
+# result before validate_submission_set() existed.
+
+
+def test_duplicate_commit_sequence_is_rejected():
+    """Ambiguous leaf order would make the commitment root irreproducible."""
+    from engine import InvalidSubmissionSet
+
+    subs = [sub(1, (1, 2, 3), 1, seq=7), sub(2, (4, 5, 6), 4, seq=7)]
+    with pytest.raises(InvalidSubmissionSet, match="commit_sequence"):
+        resolve("r1", subs)
+
+
+def test_duplicate_submission_id_is_rejected():
+    from engine import InvalidSubmissionSet
+
+    subs = [
+        Submission("r1", "dup", "u1", (1, 2, 3), 1, 1),
+        Submission("r1", "dup", "u2", (4, 5, 6), 4, 2),
+    ]
+    with pytest.raises(InvalidSubmissionSet, match="submission_id"):
+        resolve("r1", subs)
+
+
+def test_one_entry_per_account_per_round_is_enforced():
+    from engine import InvalidSubmissionSet
+
+    subs = [
+        Submission("r1", "s1", "same-user", (1, 2, 3), 1, 1),
+        Submission("r1", "s2", "same-user", (4, 5, 6), 4, 2),
+    ]
+    with pytest.raises(InvalidSubmissionSet, match="one entry per account"):
+        resolve("r1", subs)
+
+
+def test_submission_from_another_round_is_rejected():
+    """The root must commit to the round it is reported against."""
+    from engine import InvalidSubmissionSet
+
+    subs = [Submission("OTHER", "s1", "u1", (1, 2, 3), 1, 1)]
+    with pytest.raises(InvalidSubmissionSet, match="belongs to round"):
+        resolve("r1", subs)
+
+
+@settings(max_examples=40, deadline=None)
+@given(
+    st.lists(
+        st.tuples(
+            st.lists(st.integers(0, 9), min_size=3, max_size=3, unique=True).map(tuple),
+            st.integers(0, 9),
+        ),
+        min_size=1,
+        max_size=40,
+    ),
+    st.randoms(use_true_random=False),
+)
+def test_root_never_depends_on_argument_order(entries, rng):
+    """The strong form of the determinism guarantee, over shuffled inputs."""
+    subs = [sub(i, p, v, seq=i) for i, (p, v) in enumerate(entries)]
+    shuffled = list(subs)
+    rng.shuffle(shuffled)
+    a, b = resolve("r1", subs), resolve("r1", shuffled)
+    assert a.commitment_root == b.commitment_root
+    assert a.winning_number == b.winning_number
+    assert [p.submission_id for p in a.players] == [p.submission_id for p in b.players]
+    assert [p.mandate_rank for p in a.mandate_board] == [
+        p.mandate_rank for p in b.mandate_board
+    ]
+
+
+def test_mandate_board_order_is_stable_under_score_ties():
+    """Tied scores resolve by commit_sequence, never by argument order."""
+    subs = [
+        sub(1, (5, 2, 7), 5, seq=10, eligible=True),
+        sub(2, (5, 2, 7), 5, seq=20, eligible=True),
+        sub(3, (5, 2, 7), 5, seq=30, eligible=True),
+    ]
+    forward = [p.submission_id for p in resolve("r1", subs).mandate_board]
+    backward = [p.submission_id for p in resolve("r1", list(reversed(subs))).mandate_board]
+    assert forward == backward == ["s1", "s2", "s3"]
