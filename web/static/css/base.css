@@ -17,7 +17,9 @@ body {
   font-family: var(--ui);
   font-size: var(--t-base);
   line-height: 1.55;
-  font-feature-settings: "ss01" 1;
+  /* Every figure on the page sits in a column that must not shift as it
+     counts down or recounts. */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
@@ -48,11 +50,13 @@ main.shell {
 
 /* ── Typographic primitives ─────────────────────────────────────────────── */
 
-/* Ceremony: reserved for display sizes, where a didone's hairlines survive. */
-.ceremony {
-  font-family: var(--ceremony);
-  font-weight: 500;
-  letter-spacing: -.01em;
+/* Display: set light, uppercase and widely tracked. The air is the point —
+   at these weights, spacing carries the authority that weight normally would. */
+.display {
+  font-family: var(--display);
+  font-weight: var(--w-light);
+  text-transform: uppercase;
+  letter-spacing: var(--track-display);
   text-wrap: balance;
 }
 
@@ -68,16 +72,16 @@ main.shell {
   font-size: var(--t-micro);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--w-mid);
   color: var(--ink-3);
 }
 
 .note   { font-size: var(--t-fine); color: var(--ink-2); line-height: 1.6; }
 .note--quiet { color: var(--ink-3); }
-.note b { color: var(--accent); font-weight: 600; }
+.note b { color: var(--accent); font-weight: var(--w-mid); }
 
 h1, h2, h3, p { margin: 0; }
-h1, h2, h3 { font-weight: 600; }
+h1, h2, h3 { font-weight: var(--w-light); }
 
 a { color: var(--accent); }
 

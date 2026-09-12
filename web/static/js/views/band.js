@@ -85,7 +85,7 @@ export function createBand() {
         return;
       }
       const phase = PHASES[round.status] ?? { name: round.status, pill: "", tone: "" };
-      $("cycle").textContent = `№ ${round.cycle_number}`;
+      $("cycle").textContent = String(round.cycle_number).padStart(2, "0");
       $("phase").textContent = phase.name;
       const pill = $("phasePill");
       pill.textContent = phase.pill;

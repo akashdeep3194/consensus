@@ -40,22 +40,43 @@
   --claret-line: #e4bdb7;
   --sage:        #4f6f42;
 
-  /* Type roles */
-  --ceremony: "Bodoni Moda", "Didot", "Times New Roman", serif;
-  --ui:       "Schibsted Grotesk", -apple-system, "Segoe UI", sans-serif;
-  --data:     "Azeret Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Type roles. One neutral grotesque carries all three, the way a marque's
+     corporate family does: hierarchy comes from size, weight and tracking,
+     never from a second voice.
+
+     Figures deliberately do NOT use a programming mono. Those mark their
+     zero — dotted in Plex, slashed in Roboto Mono — to separate 0 from O,
+     a distinction this product never has to make, so the mark reads as a
+     defect on a number that is the whole point of the page. Columns hold
+     instead on `tabular-nums`, which Archivo supports. */
+  --display: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --ui:      "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --data:    "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* Weights. Display type runs light; the grid holds it up. */
+  --w-hair:  200;
+  --w-light: 300;
+  --w-book:  400;
+  --w-mid:   500;
+  --w-bold:  600;
 
   /* Type scale — 1.2 minor third off 15px, plus two display steps */
   --t-micro: 10.5px;
   --t-fine:  12px;
   --t-small: 13px;
   --t-base:  15px;
-  --t-lead:  17px;
-  --t-h:     21px;
-  --t-display: 30px;
-  --t-hero:  64px;
+  --t-lead:  16px;
+  --t-h:     22px;
+  --t-display: 34px;
+  --t-hero:  72px;
 
-  --track-label: .14em;   /* letter-spacing for uppercase labels */
+  /* Tracking. Light weights need air, and the wider the setting the more
+     deliberate it reads. */
+  --track-label:   .14em;
+  --track-title:   .2em;
+  --track-display: .12em;
+  --track-brand:   .3em;
+  --track-figure:  .08em;
 
   /* Space — one 4px scale. Panels share --pad so inner edges align
      across columns. */
