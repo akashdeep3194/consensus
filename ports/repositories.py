@@ -1,0 +1,159 @@
+"""Repository contracts.
+
+Split by role rather than by table: a reader cannot write, and the sealing
+worker's bulk operations are not exposed to the request path. Each Protocol is
+small enough to implement fully, which is what keeps substitutes honest.
+
+`Draft` and `RoundRecord` are plain data carried across the boundary, so the
+core never handles driver-specific row objects.
+"""
+
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Protocol, runtime_checkable
+from uuid import UUID
+
+from domain.lifecycle import RoundStatus
+from domain.schedule import RoundSchedule
+
+
+class ConcurrentModification(RuntimeError):
+    """Optimistic-concurrency conflict: the row moved under us (§5.2)."""
+
+
+class RoundNotFound(LookupError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class RoundRecord:
+    round_id: UUID
+    cycle_number: int
+    status: RoundStatus
+    schedule: RoundSchedule
+    ruleset_version: str
+    algorithm_version: str
+    commitment_root: str | None = None
+    winning_number: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Draft:
+    round_id: UUID
+    user_id: UUID
+    prediction: str | None
+    vote: int | None
+    version: int
+    updated_at: datetime
+
+    @property
+    def is_complete(self) -> bool:
+        """Mirrors the generated column of the same name (F6)."""
+        return self.prediction is not None and self.vote is not None
+
+
+@dataclass(frozen=True, slots=True)
+class CommittedEntry:
+    submission_id: UUID
+    round_id: UUID
+    user_id: UUID
+    prediction: str
+    vote: int
+    commit_sequence: int
+    committed_at: datetime
+    mandate_eligible: bool
+    voided_at: datetime | None = None
+
+
+# ── rounds ─────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class RoundReader(Protocol):
+    async def get(self, round_id: UUID) -> RoundRecord: ...
+    async def by_cycle(self, cycle_number: int) -> RoundRecord | None: ...
+    async def live(self) -> Sequence[RoundRecord]:
+        """Rounds that have opened but not yet revealed. Usually two (Q3)."""
+        ...
+
+
+@runtime_checkable
+class RoundWriter(Protocol):
+    async def create(self, record: RoundRecord) -> None: ...
+    async def transition(
+        self, round_id: UUID, expected: RoundStatus, to: RoundStatus
+    ) -> RoundRecord:
+        """Atomically move a round, failing if it is no longer at `expected`.
+
+        Compare-and-set rather than read-then-write: the check and the change
+        must be one operation or two workers can both believe they won.
+        """
+        ...
+
+
+# ── drafts ─────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class DraftRepository(Protocol):
+    async def get(self, round_id: UUID, user_id: UUID) -> Draft | None: ...
+    async def upsert(
+        self,
+        round_id: UUID,
+        user_id: UUID,
+        prediction: str | None,
+        vote: int | None,
+        expected_version: int | None,
+    ) -> Draft:
+        """Create or update a draft under optimistic concurrency.
+
+        `expected_version=None` creates. A mismatch raises
+        ConcurrentModification so two tabs cannot silently overwrite (§6.2).
+        """
+        ...
+
+    async def delete(self, round_id: UUID, user_id: UUID) -> None: ...
+
+
+@runtime_checkable
+class DraftScanner(Protocol):
+    """Bulk read for the sealing worker. Separated from the request path."""
+
+    async def iter_complete(
+        self, round_id: UUID, chunk_size: int
+    ) -> AsyncIterator[Sequence[Draft]]:
+        """Complete drafts in a deterministic order, in chunks (F5)."""
+        ...
+
+    async def count_complete(self, round_id: UUID) -> int: ...
+
+
+# ── submissions ────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class SubmissionReader(Protocol):
+    async def get_for_user(self, round_id: UUID, user_id: UUID) -> CommittedEntry | None: ...
+    async def iter_round(
+        self, round_id: UUID, chunk_size: int
+    ) -> AsyncIterator[Sequence[CommittedEntry]]:
+        """The round's entries in commit_sequence order — the resolver's input."""
+        ...
+
+    async def count(self, round_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class SubmissionWriter(Protocol):
+    async def commit_entry(
+        self,
+        round_id: UUID,
+        user_id: UUID,
+        prediction: str,
+        vote: int,
+        mandate_eligible: bool,
+        idempotency_key: str | None,
+    ) -> CommittedEntry:
+        """Lock in one entry. Idempotent: retrying a key returns the existing row."""
+        ...

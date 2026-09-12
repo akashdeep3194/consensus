@@ -1,4 +1,4 @@
-import itertools, collections, random, math
+import itertools, random, math
 
 PREDS = [p for p in itertools.permutations(range(10), 3)]   # 720 ordered distinct
 SETS  = list(itertools.combinations(range(10), 3))           # 120 unordered

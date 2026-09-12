@@ -25,3 +25,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# analysis/ holds exploratory simulation scripts written to be read in a
+# terminal, not production code. Real errors still apply; style rules do not.
+"analysis/*" = ["E4", "E7", "E70", "I001", "B905", "SIM", "F811", "F541", "E402"]
