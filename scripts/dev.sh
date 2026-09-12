@@ -46,12 +46,20 @@ fi
 export PGHOST=$SOCK PGPORT PGUSER=consensus PGPASSWORD=consensus PGDATABASE=consensus
 export DEV_LOGIN=1 DEMO_ROUND_MINUTES=${DEMO_ROUND_MINUTES:-10}
 
+# Stop any running api first: it holds connections to the database we may drop.
+pkill -f "uvicorn api.main" 2>/dev/null || true
+sleep 1
+
 psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='consensus'" | grep -q 1 \
   || psql -d postgres -q -c "CREATE DATABASE consensus;"
 
 if [[ $FRESH == 1 ]]; then
   echo "==> resetting database"
-  psql -d postgres -q -c "DROP DATABASE IF EXISTS consensus;" -c "CREATE DATABASE consensus;"
+  # WITH (FORCE) evicts an api process still holding a connection; without it a
+  # re-run of --fresh fails whenever the previous server has not fully exited.
+  psql -d postgres -q \
+    -c "DROP DATABASE IF EXISTS consensus WITH (FORCE);" \
+    -c "CREATE DATABASE consensus;"
 fi
 
 # A fixed anchor keeps cycle numbers stable across restarts.
@@ -61,8 +69,6 @@ fi
 export ROUND_ANCHOR=$(cat $DATA/anchor)
 
 # ── server ─────────────────────────────────────────────────────────────────
-pkill -f "uvicorn api.main" 2>/dev/null || true
-sleep 1
 echo "==> starting api on :$PORT"
 .venv/bin/uvicorn api.main:app --port $PORT --log-level warning > $DATA/api.log 2>&1 &
 for _ in $(seq 1 30); do
