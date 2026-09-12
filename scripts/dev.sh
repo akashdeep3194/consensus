@@ -11,7 +11,6 @@ cd "$(dirname "$0")/.."
 PORT=${PORT:-8099}
 PGPORT=${PGPORT:-55432}
 DATA=.devdata
-SOCK=${CONSENSUS_SOCK:-$(mktemp -d /tmp/cx.XXXX)}
 FRESH=0
 [[ "${1:-}" == "--fresh" ]] && FRESH=1
 
@@ -26,15 +25,23 @@ if [[ ! -d $DATA/pgdata ]]; then
   initdb -D $DATA/pgdata -U consensus --auth=trust -E UTF8 >/dev/null
 fi
 
-if ! pg_ctl -D $DATA/pgdata status >/dev/null 2>&1; then
+# The socket directory is remembered in $DATA/socket. A macOS unix socket path
+# is capped at ~103 bytes, so it must live in /tmp rather than beside the repo.
+if pg_ctl -D $DATA/pgdata status >/dev/null 2>&1 && [[ -S "$(cat $DATA/socket 2>/dev/null)/.s.PGSQL.$PGPORT" ]]; then
+  SOCK=$(cat $DATA/socket)
+  echo "==> postgres already running on :$PGPORT"
+else
+  pg_ctl -D $DATA/pgdata stop >/dev/null 2>&1 || true
+  SOCK=$(mktemp -d /tmp/cx.XXXX)
   echo "==> starting postgres on :$PGPORT"
   pg_ctl -D $DATA/pgdata -o "-p $PGPORT -k $SOCK -c listen_addresses=''" \
          -l $DATA/pg.log start >/dev/null
-  sleep 2
-else
-  SOCK=$(grep -oE "^\s*-k \S+" $DATA/pg.log 2>/dev/null | tail -1 | awk '{print $2}' || echo "$SOCK")
+  for _ in $(seq 1 25); do
+    [[ -S "$SOCK/.s.PGSQL.$PGPORT" ]] && break
+    sleep 0.3
+  done
+  echo "$SOCK" > $DATA/socket
 fi
-echo "$SOCK" > $DATA/socket
 
 export PGHOST=$SOCK PGPORT PGUSER=consensus PGPASSWORD=consensus PGDATABASE=consensus
 export DEV_LOGIN=1 DEMO_ROUND_MINUTES=${DEMO_ROUND_MINUTES:-10}
