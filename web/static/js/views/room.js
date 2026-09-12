@@ -41,13 +41,20 @@ export function createRoom() {
 
       const number = ranked.slice(0, 3).map((r) => r.digit).join("");
       projected.innerHTML = standings.total
-        ? `<span class="label">Sealed now, the number reads</span>
-           <div><span class="projected__number">${number}</span>
-           <span class="note note--quiet"> from ${standings.total}
-             vote${standings.total === 1 ? "" : "s"}</span></div>`
-        : `<span class="label">No votes yet</span>
-           <div><span class="projected__number">012</span>
-           <span class="note note--quiet"> — with nothing cast, every tie resolves low</span></div>`;
+        ? `<div class="projected__container">
+             <span class="label projected__label">Current Leader</span>
+             <div class="projected__number-container">
+               <span class="projected__number">${number}</span>
+               <span class="projected__votes">${standings.total} vote${standings.total === 1 ? "" : "s"}</span>
+             </div>
+           </div>`
+        : `<div class="projected__container">
+             <span class="label projected__label">No Votes Yet</span>
+             <div class="projected__number-container">
+               <span class="projected__number projected__number--empty">012</span>
+               <span class="note note--quiet">Ties resolve low</span>
+             </div>
+           </div>`;
     },
   };
 }

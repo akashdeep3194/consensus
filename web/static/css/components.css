@@ -211,7 +211,12 @@
 .tally__row.is-mine .tally__mine { background: var(--sage); }
 
 .projected { padding-top: var(--s4); border-top: 1px solid var(--line); font-size: var(--t-fine); color: var(--ink-2); }
-.projected__number { font-size: 26px; font-weight: var(--w-hair); color: var(--ink); letter-spacing: .2em; }
+.projected__container { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.projected__label { font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink-3); font-weight: var(--w-mid); }
+.projected__number-container { display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
+.projected__number { font-size: 32px; font-weight: var(--w-hair); color: var(--accent); letter-spacing: .2em; line-height: 1; }
+.projected__number--empty { color: var(--line-2); }
+.projected__votes { font-size: var(--t-fine); color: var(--ink-3); }
 
 .blind { text-align: center; padding-block: var(--s6); display: flex; flex-direction: column; gap: var(--s3); align-items: center; }
 .blind__head {
