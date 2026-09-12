@@ -16,13 +16,16 @@ from domain.lifecycle import RoundStatus
 
 @dataclass(frozen=True, slots=True)
 class RoundTiming:
-    """Phase offsets from a round's opening instant."""
+    """Phase offsets from a round's opening instant.
+    
+    Game runs 23.5 hours (00:00 UTC to 23:30 UTC), then results revealed at 00:00 UTC next day.
+    """
 
     mandate_deadline: timedelta = timedelta(hours=12)   # Board B eligibility, S3
     blackout: timedelta = timedelta(hours=23)
-    seal: timedelta = timedelta(hours=24)
-    reveal: timedelta = timedelta(hours=30)
-    cadence: timedelta = timedelta(days=1)              # gap between openings
+    seal: timedelta = timedelta(hours=23, minutes=30)   # Seal at 23:30 UTC
+    reveal: timedelta = timedelta(days=1)                # Reveal at 00:00 UTC next day
+    cadence: timedelta = timedelta(days=1)              # Next round opens at 00:00 UTC
 
     def __post_init__(self) -> None:
         ordered = (self.mandate_deadline, self.blackout, self.seal, self.reveal)

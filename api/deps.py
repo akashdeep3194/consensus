@@ -39,18 +39,18 @@ def _anchor() -> datetime:
 
 
 def _timing() -> RoundTiming:
-    """DEMO_MINUTES compresses a 30-hour round into minutes for demos and tests."""
+    """DEMO_MINUTES compresses a 24-hour round into minutes for demos and tests."""
     minutes = os.environ.get("DEMO_ROUND_MINUTES")
     if not minutes:
         return DEFAULT_TIMING
     from datetime import timedelta
 
-    unit = timedelta(minutes=float(minutes)) / 30       # one "hour" of the round
+    unit = timedelta(minutes=float(minutes)) / 24       # one "hour" of the round
     return RoundTiming(
         mandate_deadline=unit * 12,
         blackout=unit * 23,
-        seal=unit * 24,
-        reveal=unit * 30,
+        seal=unit * 23.5,
+        reveal=unit * 24,
         cadence=unit * 24,
     )
 
