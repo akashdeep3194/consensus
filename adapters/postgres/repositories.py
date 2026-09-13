@@ -133,6 +133,24 @@ class PostgresRoundRepository:
         )
         return [_round(r) for r in rows]
 
+    async def history(
+        self, before_cycle: int | None, limit: int
+    ) -> Sequence[RoundRecord]:
+        where = "status='revealed' AND winning_number IS NOT NULL"
+        if before_cycle is None:
+            rows = await self._pool.fetch(
+                f"SELECT {ROUND_COLUMNS} FROM rounds WHERE {where} "
+                f"ORDER BY cycle_number DESC LIMIT $1",
+                limit,
+            )
+        else:
+            rows = await self._pool.fetch(
+                f"SELECT {ROUND_COLUMNS} FROM rounds WHERE {where} "
+                f"AND cycle_number < $2 ORDER BY cycle_number DESC LIMIT $1",
+                limit, before_cycle,
+            )
+        return [_round(r) for r in rows]
+
     async def transition(
         self, round_id: UUID, expected: RoundStatus, to: RoundStatus
     ) -> RoundRecord:

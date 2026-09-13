@@ -35,3 +35,10 @@ export const mmss = (ms) => {
 
 export const clockTime = () =>
   new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+/** "Sep 13, 2026, 9:42 PM" — identifying a past round in the History list.
+ * Viewer-local, like clockTime() above; the server sends UTC throughout. */
+export const dateTime = (iso) =>
+  new Date(iso).toLocaleString([], {
+    year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });

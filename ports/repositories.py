@@ -84,6 +84,18 @@ class RoundReader(Protocol):
         """Rounds that have opened but not yet revealed. Usually two (Q3)."""
         ...
 
+    async def history(
+        self, before_cycle: int | None, limit: int
+    ) -> Sequence[RoundRecord]:
+        """REVEALED rounds with a persisted result, newest first, at most `limit`.
+
+        `before_cycle` (exclusive) is the keyset-pagination cursor — omit it
+        for the first page. A round that reached REVEALED without ever being
+        resolved has no result to show and is excluded, the same treatment
+        VOIDED already gets.
+        """
+        ...
+
 
 @runtime_checkable
 class RoundWriter(Protocol):

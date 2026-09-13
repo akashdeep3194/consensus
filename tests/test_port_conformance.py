@@ -8,6 +8,7 @@ param — not a second copy of these assertions.
 If a substitute cannot pass unchanged, it is not a valid substitute.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -86,7 +87,7 @@ def new_user(repos) -> UUID:
     return user_id
 
 
-def make_round(rounds, status=RoundStatus.OPEN, cycle=1):
+def make_round(rounds, status=RoundStatus.OPEN, cycle=1, winning_number=None):
     rec = RoundRecord(
         round_id=uuid4(),
         cycle_number=cycle,
@@ -96,6 +97,12 @@ def make_round(rounds, status=RoundStatus.OPEN, cycle=1):
         algorithm_version="1.1.0",
     )
     run(rounds.create(rec))
+    if winning_number is not None:
+        # create() intentionally does not accept a winning number (a round
+        # is never born with a result) — record_resolution is the one real
+        # way any adapter ever sets it, so tests go through it too.
+        run(rounds.record_resolution(rec.round_id, winning_number))
+        rec = replace(rec, winning_number=winning_number)
     return rec
 
 
@@ -150,6 +157,52 @@ def test_live_excludes_revealed_and_voided(repos):
     b = make_round(rounds, cycle=2)
     run(rounds.transition(b.round_id, RoundStatus.OPEN, RoundStatus.VOIDED))
     assert [r.round_id for r in run(rounds.live())] == [a.round_id]
+
+
+# ── history — the past-rounds list (History tab) ─────────────────────
+def test_history_orders_revealed_rounds_newest_first(repos):
+    rounds, _, _ = repos
+    make_round(rounds, status=RoundStatus.OPEN, cycle=1)
+    two = make_round(rounds, status=RoundStatus.REVEALED, cycle=2, winning_number="123")
+    make_round(rounds, status=RoundStatus.VOIDED, cycle=3)
+    four = make_round(rounds, status=RoundStatus.REVEALED, cycle=4, winning_number="456")
+    assert [r.round_id for r in run(rounds.history(None, 10))] == [four.round_id, two.round_id]
+
+
+def test_history_excludes_revealed_rounds_missing_a_winning_number(repos):
+    """A round that reached REVEALED without ever being resolved (the gap
+    services.sealing.SealingService.finalize closes) has no result to show —
+    same treatment as VOIDED, not a broken row."""
+    rounds, _, _ = repos
+    one = make_round(rounds, status=RoundStatus.REVEALED, cycle=1, winning_number="789")
+    make_round(rounds, status=RoundStatus.REVEALED, cycle=2)  # no winning_number
+    assert [r.round_id for r in run(rounds.history(None, 10))] == [one.round_id]
+
+
+def test_history_before_cycle_cursor_is_strictly_less_than(repos):
+    rounds, _, _ = repos
+    recs = [
+        make_round(rounds, status=RoundStatus.REVEALED, cycle=c, winning_number="123")
+        for c in (1, 2, 3)
+    ]
+    assert [r.round_id for r in run(rounds.history(3, 10))] == [recs[1].round_id, recs[0].round_id]
+    assert run(rounds.history(1, 10)) == []
+
+
+def test_history_respects_limit(repos):
+    rounds, _, _ = repos
+    recs = [
+        make_round(rounds, status=RoundStatus.REVEALED, cycle=c, winning_number="123")
+        for c in range(1, 6)
+    ]
+    page = run(rounds.history(None, 2))
+    assert [r.round_id for r in page] == [recs[4].round_id, recs[3].round_id]
+
+
+def test_history_empty_when_nothing_revealed(repos):
+    rounds, _, _ = repos
+    make_round(rounds, status=RoundStatus.OPEN, cycle=1)
+    assert run(rounds.history(None, 10)) == []
 
 
 # ── drafts ──────────────────────────────────────────────────────────

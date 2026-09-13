@@ -28,4 +28,11 @@ export const api = {
   result:     (round) => request("GET", `/api/rounds/${round}/result`),
   myResult:   (round) => request("GET", `/api/rounds/${round}/my-result`),
   advanceClock:   () => request("POST", "/api/admin/advance"),
+  history: ({ beforeCycle, limit } = {}) => {
+    const q = new URLSearchParams();
+    if (beforeCycle != null) q.set("before_cycle", beforeCycle);
+    if (limit != null) q.set("limit", limit);
+    const qs = q.toString();
+    return request("GET", `/api/rounds/history${qs ? `?${qs}` : ""}`);
+  },
 };

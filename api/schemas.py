@@ -48,6 +48,20 @@ class EntryOut(BaseModel):
     committed_at: datetime | None = None
 
 
+class RoundSummaryOut(BaseModel):
+    round_id: UUID
+    cycle_number: int
+    opens_at: datetime
+    reveals_at: datetime
+    winning_number: str
+    commitment_root: str
+
+
+class RoundHistoryOut(BaseModel):
+    rounds: list[RoundSummaryOut]
+    next_before_cycle: int | None = None
+
+
 class TierCount(BaseModel):
     tier: str
     players: int

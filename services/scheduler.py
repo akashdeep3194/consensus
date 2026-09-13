@@ -47,22 +47,33 @@ class SweepTarget(Protocol):
 class SweepResult:
     moved: list[tuple[UUID, RoundStatus, RoundStatus]]
     sealed: list[UUID]
+    finalized: list[UUID]
 
 
 async def sweep_once(container: SweepTarget) -> SweepResult:
-    """Ensure the current cycle exists, advance anything due, seal anything sealing.
+    """Ensure the current cycle exists, advance anything due, seal anything
+    sealing, and finalize (resolve + score) anything sealed.
 
     Idempotent and safe under concurrent callers: every transition inside is
     compare-and-set (§F5), so the HTTP endpoint and the background loop can
     both call this at the same instant without coordinating.
+
+    `finalize` is attempted for every live round, not only ones this sweep
+    just sealed — a round sealed by an earlier sweep that crashed before
+    finalizing needs exactly the same retry, and `finalize` itself is a
+    no-op (one indexed read) for any round that isn't SEALED/RESOLVING yet.
     """
     moved = await container.rounds.ensure_current()
     sealed: list[UUID] = []
+    finalized: list[UUID] = []
     for r in await container.rounds.live():
         if r.status is RoundStatus.SEALING:
             report = await container.sealing.seal(r.round_id)
             sealed.append(report.round_id)
-    return SweepResult(moved=moved, sealed=sealed)
+        result = await container.sealing.finalize(r.round_id)
+        if result is not None:
+            finalized.append(r.round_id)
+    return SweepResult(moved=moved, sealed=sealed, finalized=finalized)
 
 
 def next_boundary(live_rounds: Sequence[RoundRecord], now: datetime) -> datetime | None:
@@ -102,8 +113,8 @@ async def run_scheduler(get_container: Callable[[], SweepTarget]) -> None:
                 else min(MAX_SLEEP_SECONDS, max(MIN_SLEEP_SECONDS, (nxt - now).total_seconds()))
             )
             log.info(
-                "scheduler sweep: moved=%d sealed=%d next_wake_in=%.1fs",
-                len(result.moved), len(result.sealed), sleep_for,
+                "scheduler sweep: moved=%d sealed=%d finalized=%d next_wake_in=%.1fs",
+                len(result.moved), len(result.sealed), len(result.finalized), sleep_for,
             )
         except asyncio.CancelledError:
             raise

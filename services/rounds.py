@@ -45,6 +45,14 @@ class RoundView:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class RoundPage:
+    """One page of round history, plus the cursor for the next one."""
+
+    rounds: list[RoundRecord]
+    next_before_cycle: int | None
+
+
 class RoundService:
     def __init__(
         self,
@@ -100,6 +108,22 @@ class RoundService:
 
     async def live(self) -> list[RoundRecord]:
         return list(await self._rounds.live())
+
+    async def history(
+        self, before_cycle: int | None = None, limit: int = 20
+    ) -> RoundPage:
+        """One page of past results, newest first.
+
+        Fetches one extra row beyond `limit` purely to know whether another
+        page exists — `next_before_cycle` is only ever non-None when a
+        further page is actually there, so a caller can never show a "load
+        more" control that leads to nothing.
+        """
+        fetched = await self._rounds.history(before_cycle, limit + 1)
+        has_more = len(fetched) > limit
+        rounds = list(fetched[:limit])
+        next_cursor = rounds[-1].cycle_number if has_more else None
+        return RoundPage(rounds=rounds, next_before_cycle=next_cursor)
 
     async def advance_due(self) -> list[tuple[UUID, RoundStatus, RoundStatus]]:
         """Move every round whose next phase is due. Idempotent and restartable.

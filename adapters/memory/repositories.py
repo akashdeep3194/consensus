@@ -52,6 +52,22 @@ class InMemoryRoundRepository:
             key=lambda r: r.cycle_number,
         )
 
+    async def history(
+        self, before_cycle: int | None, limit: int
+    ) -> Sequence[RoundRecord]:
+        revealed = sorted(
+            (
+                r
+                for r in self._rounds.values()
+                if r.status is RoundStatus.REVEALED and r.winning_number is not None
+            ),
+            key=lambda r: r.cycle_number,
+            reverse=True,
+        )
+        if before_cycle is not None:
+            revealed = [r for r in revealed if r.cycle_number < before_cycle]
+        return revealed[:limit]
+
     async def transition(
         self, round_id: UUID, expected: RoundStatus, to: RoundStatus
     ) -> RoundRecord:

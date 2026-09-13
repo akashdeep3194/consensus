@@ -8,11 +8,12 @@ import { createTopbar } from "./views/topbar.js";
 import { createEntry } from "./views/entry.js";
 import { createRoom } from "./views/room.js";
 import { createResult } from "./views/result.js";
+import { createHistory } from "./views/history.js";
 
 const POLL_MS = 4000;
 const TICK_MS = 200;
 const SAVE_DEBOUNCE_MS = 450;
-const VIEWS = ["play", "room", "result"];
+const VIEWS = ["play", "room", "result", "history"];
 const RESOLVED = new Set(["sealed", "resolving", "revealed"]);
 
 const state = {
@@ -24,6 +25,7 @@ let saveTimer = null;
 const topbar = createTopbar();
 const room = createRoom();
 const result = createResult();
+const history = createHistory(() => state.handle);
 const entry = createEntry({
   onDraftChange(draft) {
     state.draft = draft;
@@ -43,6 +45,9 @@ function setView(name, { push = true } = {}) {
   [...$("tabs").children].forEach((tab) =>
     tab.classList.toggle("is-active", tab.dataset.view === name));
   if (push && location.hash.slice(1) !== name) location.hash = name;
+  // Past rounds never change, so this loads its first page once — not on
+  // every 4s poll the way the live views do — the first time it's opened.
+  if (name === "history") history.activate();
 }
 
 const viewFromHash = () => location.hash.slice(1) || "play";

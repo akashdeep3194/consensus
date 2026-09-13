@@ -12,7 +12,7 @@ import pathlib
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,7 +25,9 @@ from api.schemas import (
     MandateRow,
     MyResultOut,
     ResultOut,
+    RoundHistoryOut,
     RoundOut,
+    RoundSummaryOut,
     TierCount,
 )
 from domain.lifecycle import RoundStatus
@@ -110,6 +112,30 @@ async def list_rounds():
     await _ensure_current_round()
     now = datetime.now(UTC)
     return [_round_out(RoundView.of(r, now)) for r in await C().rounds.live()]
+
+
+@app.get("/api/rounds/history", response_model=RoundHistoryOut)
+async def round_history(before_cycle: int | None = None, limit: int = Query(20, ge=1, le=100)):
+    """Past rounds with a real result, newest first — the History tab.
+
+    Public, like `result()` below: this is round-wide metadata, not anything
+    personal to the caller. Never 404s — no rounds yet is a valid, empty page.
+    """
+    page = await C().rounds.history(before_cycle, limit)
+    return RoundHistoryOut(
+        rounds=[
+            RoundSummaryOut(
+                round_id=r.round_id,
+                cycle_number=r.cycle_number,
+                opens_at=r.schedule.opens_at,
+                reveals_at=r.schedule.reveals_at,
+                winning_number=r.winning_number,
+                commitment_root=r.commitment_root,
+            )
+            for r in page.rounds
+        ],
+        next_before_cycle=page.next_before_cycle,
+    )
 
 
 @app.get("/api/rounds/latest-revealed")
@@ -299,6 +325,7 @@ async def advance():
     return {
         "moved": [{"round": str(a), "from": b, "to": c} for a, b, c in result.moved],
         "sealed": [str(s) for s in result.sealed],
+        "finalized": [str(s) for s in result.finalized],
     }
 
 
@@ -307,17 +334,17 @@ async def force_seal(round_id: UUID):
     """Seal and resolve a round now, regardless of the clock.
 
     An operator action, used by demos and tests. It does not bypass any rule —
-    it runs the same sealing path the scheduler would, so auto-commit, the
-    commitment root and resolution all behave identically.
+    it runs the same sealing-and-finalizing path the scheduler would
+    (services.sealing.SealingService.seal / .finalize), so auto-commit, the
+    commitment root and resolution all behave identically. `finalize` returns
+    None on a round that was already finalized by the time this runs (e.g. the
+    background scheduler beat this call to it) — the plain recompute is still
+    correct there, just not something to persist twice.
     """
     report = await C().sealing.seal(round_id)
-    result = await C().sealing.resolve_round(round_id, persist=True)
-    record = await C().rounds._rounds.get(round_id)  # noqa: SLF001
-    if record.status is RoundStatus.RESOLVING:
-        await C().rounds._rounds.transition(  # noqa: SLF001
-            round_id, RoundStatus.RESOLVING, RoundStatus.REVEALED
-        )
-    await _record_results(round_id, result)
+    result = await C().sealing.finalize(round_id) or await C().sealing.resolve_round(
+        round_id, persist=False
+    )
     next_round = await _open_next_round()
     return {
         "round_id": str(round_id),
@@ -347,47 +374,6 @@ async def _open_next_round() -> UUID | None:
             record.round_id, RoundStatus.SCHEDULED, RoundStatus.OPEN
         )
     return record.round_id
-
-
-async def _record_results(round_id: UUID, result) -> None:
-    """Persist per-player outcomes and roll up season totals.
-
-    Derived data: it can be recomputed from the committed set at any time, so a
-    failure here never threatens the authoritative record.
-    """
-    from engine import Tier as T
-
-    async with C().pool.acquire() as conn, conn.transaction():
-        for p in result.players:
-            uid = UUID(p.user_id)
-            streak_before = await conn.fetchval(
-                "SELECT streak FROM user_seasons WHERE user_id=$1", uid
-            ) or 0
-            points, streak_after = award(p.tier, streak_before)
-            await conn.execute(
-                """INSERT INTO round_results (round_id,user_id,tier,points,streak_after,
-                       mandate_score,mandate_rank)
-                   VALUES ($1,$2,$3,$4,$5,$6,$7)
-                   ON CONFLICT (round_id,user_id) DO NOTHING""",
-                round_id, uid, p.tier.label, points, streak_after,
-                p.mandate_score, p.mandate_rank,
-            )
-            await conn.execute(
-                """INSERT INTO user_seasons (user_id,total_points,streak,best_streak,
-                       trifectas,boxed,rounds_played)
-                   VALUES ($1,$2,$3,$3,$4,$5,1)
-                   ON CONFLICT (user_id) DO UPDATE SET
-                     total_points = user_seasons.total_points + EXCLUDED.total_points,
-                     streak       = EXCLUDED.streak,
-                     best_streak  = greatest(user_seasons.best_streak, EXCLUDED.streak),
-                     trifectas    = user_seasons.trifectas + EXCLUDED.trifectas,
-                     boxed        = user_seasons.boxed + EXCLUDED.boxed,
-                     rounds_played= user_seasons.rounds_played + 1,
-                     updated_at   = now()""",
-                uid, points, streak_after,
-                1 if p.tier is T.TRIFECTA else 0,
-                1 if p.tier is T.BOXED else 0,
-            )
 
 
 @app.get("/api/leaderboard")

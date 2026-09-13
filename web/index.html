@@ -77,6 +77,7 @@
     <button class="tab is-active" type="button" data-view="play">Play</button>
     <button class="tab" type="button" data-view="room">The room</button>
     <button class="tab" type="button" data-view="result">Result</button>
+    <button class="tab" type="button" data-view="history">History</button>
   </nav>
 
   <main class="shell stage">
@@ -174,6 +175,16 @@
           <h2 class="step__title" id="resultTitle">Result</h2>
         </header>
         <div id="resultBody"></div>
+      </div>
+    </section>
+
+    <!-- ── history ──────────────────────────────────────────────────── -->
+    <section class="view" id="view-history" hidden>
+      <div class="card">
+        <header class="step__head">
+          <h2 class="step__title" id="historyTitle">History</h2>
+        </header>
+        <div id="historyBody"></div>
       </div>
     </section>
 

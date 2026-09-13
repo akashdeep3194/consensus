@@ -184,3 +184,41 @@ def test_full_round_seals_resolves_and_scores(client):
 def test_result_is_unavailable_before_sealing(client):
     fresh = client.post("/api/admin/advance").json()
     assert "moved" in fresh
+
+
+def test_history_lists_revealed_rounds_and_paginates(client):
+    """The History tab's backend: newest first, a real result on every row,
+    and a cursor that only ever points at an actual further page."""
+    revealed = []
+    for _ in range(3):
+        rid = client.get("/api/rounds/current").json()["round_id"]
+        sealed = client.post(f"/api/admin/rounds/{rid}/seal").json()
+        assert sealed["winning_number"], "force-seal must finalize, not just seal"
+        revealed.append(rid)
+    newest_first = list(reversed(revealed))
+
+    first = client.get("/api/rounds/history?limit=2").json()
+    assert [r["round_id"] for r in first["rounds"]] == newest_first[:2]
+    assert first["next_before_cycle"] is not None
+    for row in first["rounds"]:
+        assert len(row["winning_number"]) == 3
+        assert len(row["commitment_root"]) == 64
+
+    # Earlier tests in this module also seal rounds, so there may be more
+    # history behind ours — assert only what this test itself put there.
+    second = client.get(
+        f"/api/rounds/history?limit=2&before_cycle={first['next_before_cycle']}"
+    ).json()
+    assert second["rounds"][0]["round_id"] == newest_first[2]
+
+    # A page requested past the very oldest round must never invite a further
+    # one — walk to the end and confirm next_before_cycle lands on None there.
+    cursor = first["next_before_cycle"]
+    for _ in range(50):
+        page = client.get(f"/api/rounds/history?limit=2&before_cycle={cursor}").json()
+        if page["next_before_cycle"] is None:
+            break
+        cursor = page["next_before_cycle"]
+    else:
+        pytest.fail("history pagination never terminated")
+    assert page["next_before_cycle"] is None, "must never invite a page with nothing on it"

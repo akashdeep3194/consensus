@@ -17,7 +17,9 @@ draft becomes a committed entry — applied uniformly to whatever every player's
 draft holds at that instant.
 """
 
+import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -25,10 +27,13 @@ from domain.lifecycle import RoundStatus, next_status
 from engine import Submission, resolve
 from engine.resolve import RoundResult
 from ports.clock import Clock
+from ports.repositories import ConcurrentModification
 
 log = logging.getLogger(__name__)
 
 CHUNK = 1000
+
+RecordResults = Callable[[UUID, RoundResult], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,11 +45,19 @@ class SealReport:
 
 
 class SealingService:
-    def __init__(self, rounds, drafts, submissions, clock: Clock) -> None:
+    def __init__(
+        self, rounds, drafts, submissions, clock: Clock,
+        record_results: RecordResults | None = None,
+    ) -> None:
         self._rounds = rounds
         self._drafts = drafts
         self._submissions = submissions
         self._clock = clock
+        # Optional: persisting round_results/user_seasons is a reporting
+        # concern, not core game state, so it's injected rather than a hard
+        # port dependency — finalize() works (minus that rollup) even when
+        # this is left unset, which is all the conformance/unit tests need.
+        self._record_results = record_results
 
     async def seal(self, round_id: UUID) -> SealReport:
         """Seal a round. Safe to call repeatedly and safe to resume after a crash."""
@@ -74,6 +87,41 @@ class SealingService:
             round_id, committed, total, result.commitment_root[:16],
         )
         return SealReport(round_id, committed, total, result.commitment_root)
+
+    async def finalize(self, round_id: UUID) -> RoundResult | None:
+        """Resolve, persist the winning number, and walk a sealed round the
+        rest of the way to REVEALED — the steps `seal()` deliberately stops
+        short of (§F5: sealing and resolution are separate concerns).
+
+        This is the missing half of the automatic pipeline: previously only
+        the admin force-seal endpoint ever called `resolve_round(persist=True)`
+        or recorded results, so a round left to the scheduler alone would
+        reach REVEALED with no winning number and no scored entries. This
+        closes that gap — `sweep_once` (services.scheduler) now calls this
+        for every live round every sweep, unconditionally.
+
+        Idempotent: a round not yet SEALED, or already REVEALED, is a no-op
+        (returns None). Safe under light concurrency: losing the final
+        transition to a caller who got there first (e.g. an admin force-seal
+        racing the passive scheduler) is treated the same way
+        RoundService.advance_due() already treats it — fine, not an error.
+        """
+        record = await self._rounds.get(round_id)
+        if record.status not in (RoundStatus.SEALED, RoundStatus.RESOLVING):
+            return None
+        # resolve_round(persist=True) writes the winning number and, if the
+        # round was still SEALED, advances it to RESOLVING itself — re-fetch
+        # rather than assume, so the transition below acts on the true status.
+        result = await self.resolve_round(round_id, persist=True)
+        record = await self._rounds.get(round_id)
+        if record.status is RoundStatus.RESOLVING:
+            with contextlib.suppress(ConcurrentModification):
+                await self._rounds.transition(
+                    round_id, RoundStatus.RESOLVING, RoundStatus.REVEALED
+                )
+        if self._record_results is not None:
+            await self._record_results(round_id, result)
+        return result
 
     async def _advance_to(self, record, target: RoundStatus):
         """Step a round forward to `target`, honouring every intermediate phase."""

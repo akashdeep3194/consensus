@@ -6,6 +6,7 @@ else receives typed values or ports — swapping an adapter, or tightening a
 default, is a change here and nowhere else.
 """
 
+import functools
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -26,6 +27,7 @@ from ports.auth import SessionSigner, UserRepository, user_id_for
 from ports.clock import SystemClock
 from services.auth import AuthService
 from services.entries import EntryService
+from services.results import record_results
 from services.rounds import RoundService
 from services.sealing import SealingService
 
@@ -138,7 +140,10 @@ class Container:
             pool=pool,
             rounds=RoundService(round_repo, clock, anchor, timing),
             entries=EntryService(round_repo, draft_repo, sub_repo, clock),
-            sealing=SealingService(round_repo, draft_repo, sub_repo, clock),
+            sealing=SealingService(
+                round_repo, draft_repo, sub_repo, clock,
+                record_results=functools.partial(record_results, pool),
+            ),
             users=user_repo,
             auth=auth,
             signer=signer,
