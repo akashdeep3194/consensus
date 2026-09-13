@@ -1,17 +1,13 @@
-name: Round scheduler sweep
+name: Round scheduler sweep (safety net)
 
-# There is no background worker or task queue in this app (see api.main's
-# admin routes) — round transitions only happen when RoundService.advance_due
-# runs, and the only thing that ever calls it is this sweep or a player's own
-# request hitting GET /api/rounds/current. Without this workflow, a round
-# with zero visitors at its exact phase boundary just waits until the next
-# visitor's request catches it up. This is what makes the published phase
-# times (blackout at T+23h, seal at T+23.5h, reveal at T+24h) actually real
-# rather than "true the next time someone happens to look."
-#
-# GitHub's own cron scheduler is best-effort and can run a few minutes late
-# under load — five minutes here is already the deliberate slack for that,
-# not a corner cut.
+# The primary scheduler is services.run_scheduler — a background asyncio
+# loop, started from api.main's lifespan, that sleeps exactly until the next
+# round boundary and sweeps then, rather than polling. That loop is
+# event-driven and lives inside the app process itself; this workflow exists
+# only for the case that process is down or wedged (a crash, a bad deploy, a
+# Render cold-start) and nothing is sweeping at all. Five minutes of drift
+# from *this* backstop is fine — it only ever matters when the real
+# scheduler already isn't running.
 
 on:
   schedule:

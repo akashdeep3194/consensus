@@ -4,10 +4,11 @@ Thin by design: parse, authorise, delegate to a service, serialise. No game
 rules live here — they are in engine/ and domain/.
 """
 
+import asyncio
+import contextlib
 import hmac
 import logging
 import pathlib
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -32,6 +33,7 @@ from engine import InvalidPrediction, InvalidVote
 from ports.repositories import ConcurrentModification, RoundClosed, RoundNotFound
 from services.entries import AlreadyCommitted
 from services.rounds import RoundView
+from services.scheduler import run_scheduler, sweep_once
 from services.scoring import award
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -41,7 +43,7 @@ WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
 container: Container | None = None
 
 
-@asynccontextmanager
+@contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     global container
     pool = await create_pool()
@@ -50,7 +52,15 @@ async def lifespan(app: FastAPI):
         log.info("applied migrations: %s", ", ".join(applied))
     container = Container.build(pool)
     await _ensure_current_round()
+
+    # The background scheduler (services.scheduler): sleeps exactly until the
+    # next round boundary and sweeps, independent of whether anyone happens
+    # to be visiting right then. Cancelled cleanly on shutdown below.
+    scheduler_task = asyncio.create_task(run_scheduler(C))
     yield
+    scheduler_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await scheduler_task
     await container.aclose()
 
 
@@ -76,14 +86,7 @@ register_auth_routes(app, C)
 
 
 async def _ensure_current_round():
-    """Make sure the cycle for right now exists, and advance anything due."""
-    cx = C()
-    now = datetime.now(UTC)
-    elapsed = now - cx.anchor
-    cycle = max(0, int(elapsed // cx.timing.cadence))
-    for c in {max(0, cycle - 1), cycle}:
-        await cx.rounds.ensure_scheduled(c)
-    await cx.rounds.advance_due()
+    await C().rounds.ensure_current()
 
 
 def _round_out(view: RoundView) -> RoundOut:
@@ -289,16 +292,13 @@ async def require_admin(authorization: str | None = Header(None)) -> None:
 
 @app.post("/api/admin/advance", dependencies=[Depends(require_admin)])
 async def advance():
-    """Run the scheduler sweep now. Exposed so a demo never waits on a worker."""
-    await _ensure_current_round()
-    moved = await C().rounds.advance_due()
-    sealed = []
-    for r in await C().rounds.live():
-        if r.status in (RoundStatus.SEALING,):
-            sealed.append((await C().sealing.seal(r.round_id)).round_id)
+    """Run the scheduler sweep now — the exact code the background loop runs
+    on its own timer (services.scheduler), exposed for ops and tests so
+    neither has to wait for it."""
+    result = await sweep_once(C())
     return {
-        "moved": [{"round": str(a), "from": b, "to": c} for a, b, c in moved],
-        "sealed": [str(s) for s in sealed],
+        "moved": [{"round": str(a), "from": b, "to": c} for a, b, c in result.moved],
+        "sealed": [str(s) for s in result.sealed],
     }
 
 

@@ -75,6 +75,23 @@ class RoundService:
         log.info("scheduled round cycle=%s id=%s", cycle_number, record.round_id)
         return record
 
+    async def ensure_current(self) -> list[tuple[UUID, RoundStatus, RoundStatus]]:
+        """Make sure the cycle for right now exists, and advance anything due.
+
+        The one entry point for "bring the round state up to date," called by
+        both the request path (api.main, on nearly every route) and the
+        background scheduler (services.scheduler) — whichever gets here first
+        for a given moment does the same work, and every transition
+        underneath is compare-and-set, so calling this from both at once is
+        harmless (§F5).
+        """
+        now = self._clock.now()
+        elapsed = now - self._anchor
+        cycle = max(0, int(elapsed // self._timing.cadence))
+        for c in {max(0, cycle - 1), cycle}:
+            await self.ensure_scheduled(c)
+        return await self.advance_due()
+
     async def current(self) -> RoundRecord | None:
         """The round accepting entries right now — the newest that is not sealed."""
         live = await self._rounds.live()
