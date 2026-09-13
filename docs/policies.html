@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14120e">
+<title>Consensus 3D Policies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@200..700&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #f1eee6; --surface: #fbf9f4; --surface-2: #f6f3ec; --sunk: #e7e2d6;
+    --line: #ddd7c8; --line-2: #c9c1ae;
+    --ink: #191712; --ink-2: #5d5648; --ink-3: #8a8271;
+    --accent: #8a6a21; --accent-ink: #fbf9f4; --accent-wash: #efe6cf; --accent-line: #d8c48d;
+    --claret: #9d3f36; --claret-wash: #f7e6e3; --claret-line: #e4bdb7;
+    --ui: "Archivo", -apple-system, "Segoe UI", sans-serif;
+    --track-title: .18em; --track-label: .13em; --track-brand: .3em;
+    --radius: 4px; --measure: 66ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #14120e; --surface: #1c1915; --surface-2: #221e19; --sunk: #100e0b;
+      --line: #2a2621; --line-2: #3c362d;
+      --ink: #ede7da; --ink-2: #a79e8c; --ink-3: #756d5e;
+      --accent: #c8a45c; --accent-ink: #17140e; --accent-wash: #2a2317; --accent-line: #4d4028;
+      --claret: #c9756a; --claret-wash: #2c1917; --claret-line: #4d2a26;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #14120e; --surface: #1c1915; --surface-2: #221e19; --sunk: #100e0b;
+    --line: #2a2621; --line-2: #3c362d;
+    --ink: #ede7da; --ink-2: #a79e8c; --ink-3: #756d5e;
+    --accent: #c8a45c; --accent-ink: #17140e; --accent-wash: #2a2317; --accent-line: #4d4028;
+    --claret: #c9756a; --claret-wash: #2c1917; --claret-line: #4d2a26;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--ground); color: var(--ink); font-family: var(--ui);
+    font-size: 16px; line-height: 1.4; -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+  @media (max-width: 560px) { .shell { padding-inline: 18px; } }
+
+  header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+  .top__inner { display: flex; align-items: center; gap: 12px; padding-block: 16px; }
+  .mark { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+  .mark i { width: 3px; background: var(--line-2); border-radius: 1px; }
+  .mark i:nth-child(1) { height: 100%; background: var(--accent); }
+  .mark i:nth-child(2) { height: 68%; }
+  .mark i:nth-child(3) { height: 40%; }
+  .brand { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-brand); }
+  .brand em { font-style: normal; font-weight: 600; color: var(--accent); }
+
+  .draft-banner {
+    background: var(--claret-wash); border-bottom: 1px solid var(--claret-line);
+    color: var(--claret);
+  }
+  .draft-banner__inner { padding-block: 14px; display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.6; }
+  .draft-banner b { font-weight: 700; }
+
+  main.shell { padding-block: 48px 80px; display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 56px; align-items: start; }
+  @media (max-width: 860px) { main.shell { grid-template-columns: 1fr; } }
+
+  nav.toc { position: sticky; top: 32px; display: flex; flex-direction: column; gap: 4px; }
+  @media (max-width: 860px) { nav.toc { position: static; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--surface); } }
+  .toc__label { font-size: 10.5px; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 6px; }
+  nav.toc a { color: var(--ink-2); text-decoration: none; font-size: 13.5px; padding: 5px 0; border-left: 2px solid transparent; padding-left: 10px; margin-left: -12px; }
+  nav.toc a:hover { color: var(--ink); }
+  nav.toc .toc__doc { margin-top: 18px; }
+
+  .doc { max-width: var(--measure); }
+  .doc h1 {
+    font-size: 30px; font-weight: 200; text-transform: uppercase; letter-spacing: var(--track-title);
+    margin: 0 0 6px; line-height: 1.25;
+  }
+  .doc .dek { color: var(--ink-2); font-size: 14.5px; margin: 0 0 40px; }
+  .doc .dek b { color: var(--ink); font-weight: 600; }
+
+  section.doc-part { margin-bottom: 56px; }
+  section.doc-part > h2 {
+    font-size: 20px; font-weight: 300; text-transform: uppercase; letter-spacing: .1em;
+    padding-bottom: 14px; margin: 0 0 8px; border-bottom: 1px solid var(--line);
+  }
+  section.doc-part > .part-dek { color: var(--ink-3); font-size: 13.5px; margin: 0 0 28px; }
+
+  h3 {
+    font-size: 15px; font-weight: 600; margin: 32px 0 10px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h3 .n { font-family: var(--ui); font-weight: 400; color: var(--accent); font-size: 13px; }
+  p { margin: 0 0 14px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; }
+  p.lead { color: var(--ink); }
+  ul { margin: 0 0 14px; padding-left: 22px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a.inline { color: var(--accent); }
+
+  .fact-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; margin: 20px 0 28px;
+  }
+  .fact { background: var(--surface); padding: 16px 18px; }
+  .fact .k { font-size: 10.5px; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 6px; }
+  .fact .v { font-size: 14px; color: var(--ink); line-height: 1.5; }
+  .fact.yes .v::before { content: "✓ "; color: var(--accent); font-weight: 700; }
+  .fact.no .v::before { content: "✗ "; color: var(--ink-3); font-weight: 700; }
+
+  .callout {
+    border: 1px solid var(--accent-line); background: var(--accent-wash);
+    border-radius: var(--radius); padding: 16px 20px; margin: 20px 0;
+    font-size: 14.5px; color: var(--ink); line-height: 1.65;
+  }
+  .callout .k { display: block; font-size: 10.5px; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 6px; }
+
+  .placeholder { background: var(--claret-wash); color: var(--claret); padding: 1px 6px; border-radius: 3px; font-size: .93em; border: 1px solid var(--claret-line); }
+
+  table.data { width: 100%; border-collapse: collapse; margin: 20px 0 28px; font-size: 14px; }
+  table.data th { text-align: left; font-size: 10.5px; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 0 14px 8px 0; border-bottom: 1px solid var(--line-2); }
+  table.data td { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); vertical-align: top; }
+  table.data td:first-child { color: var(--ink); font-weight: 500; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  footer.foot { border-top: 1px solid var(--line); background: var(--surface); }
+  .foot__inner { padding-block: 22px; font-size: 13px; color: var(--ink-3); line-height: 1.7; }
+  .foot__inner b { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="shell top__inner">
+    <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="brand">Consensus <em>3D</em></span>
+  </div>
+</header>
+
+<div class="draft-banner">
+  <div class="shell draft-banner__inner">
+    <span aria-hidden="true">⚠</span>
+    <span><b>Draft — not yet reviewed by a lawyer.</b> This page was written to
+      accurately describe what the Consensus 3D code actually does today (verified
+      against the source, not assumed). It is not legal advice, and every
+      <span class="placeholder">bracketed placeholder</span> below must be filled
+      in with a real value before this is published as the operative policy.
+      Have it reviewed by counsel in your jurisdiction first — data-protection and
+      gaming regulation both vary by country and by state.</span>
+  </div>
+</div>
+
+<main class="shell">
+  <nav class="toc">
+    <div class="toc__label">Privacy Policy</div>
+    <a href="#p-collect">What we collect</a>
+    <a href="#p-why">Why we collect it</a>
+    <a href="#p-share">Who sees it</a>
+    <a href="#p-public">What's shown publicly</a>
+    <a href="#p-cookies">Cookies</a>
+    <a href="#p-retain">Retention &amp; deletion</a>
+    <a href="#p-children">Age</a>
+    <a href="#p-rights">Your rights</a>
+
+    <div class="toc__label toc__doc">Terms of Service</div>
+    <a href="#t-service">The service</a>
+    <a href="#t-eligibility">Eligibility</a>
+    <a href="#t-nogambling">Not gambling</a>
+    <a href="#t-conduct">Conduct</a>
+    <a href="#t-ip">Ownership</a>
+    <a href="#t-warranty">No warranty</a>
+    <a href="#t-liability">Liability</a>
+    <a href="#t-termination">Termination</a>
+    <a href="#t-law">Governing law</a>
+    <a href="#t-contact">Contact</a>
+  </nav>
+
+  <div class="doc">
+    <h1>Privacy Policy &amp; Terms of Service</h1>
+    <p class="dek">Effective <span class="placeholder">[date of publication]</span> ·
+      Applies to <strong>Consensus 3D</strong>, operated by
+      <span class="placeholder">[your legal name / company name]</span> ("we," "us").
+      By creating an account you agree to both documents below.</p>
+
+    <section class="doc-part" id="privacy">
+      <h2>Privacy Policy</h2>
+      <p class="part-dek">The short version, true today: signing in needs a Google
+        account; we store the email and a display handle that comes with it, plus
+        your predictions and votes. We don't run ads, don't use analytics or
+        tracking scripts, and don't sell data to anyone. Full detail below.</p>
+
+      <h3 id="p-collect"><span class="n">01</span>What we collect</h3>
+      <p>We collect the minimum needed to authenticate you and run the game —
+        nothing beyond that is gathered anywhere in the product.</p>
+      <div class="fact-grid">
+        <div class="fact yes"><div class="k">Google account ID</div><div class="v">A stable identifier from Google Sign-In, so we recognise you on return visits.</div></div>
+        <div class="fact yes"><div class="k">Email address</div><div class="v">Provided by Google at sign-in. Stored, never shown publicly (see below).</div></div>
+        <div class="fact yes"><div class="k">Display handle</div><div class="v">Suggested from your Google name, editable by you. Shown publicly.</div></div>
+        <div class="fact yes"><div class="k">Gameplay activity</div><div class="v">Your predictions, votes, points and streaks, tied to your account.</div></div>
+        <div class="fact no"><div class="k">Passwords</div><div class="v">Never collected — sign-in is Google-only, nothing to store or leak.</div></div>
+        <div class="fact no"><div class="k">Payment information</div><div class="v">The game has no purchases, so none is ever requested.</div></div>
+        <div class="fact no"><div class="k">Precise location</div><div class="v">Not requested and not read from your device or browser.</div></div>
+        <div class="fact no"><div class="k">Analytics or ad trackers</div><div class="v">No analytics SDK, ad pixel or third-party tracker is loaded anywhere in the app.</div></div>
+      </div>
+      <p>One third-party request happens on every page load regardless of sign-in:
+        the page's typeface is served from Google Fonts, which — like any
+        font-hosting CDN — sees the requesting IP address as part of serving the
+        file. No account information is attached to that request.</p>
+
+      <h3 id="p-why"><span class="n">02</span>Why we collect it</h3>
+      <p>Every field above exists to do one of two things: <strong>prove who you
+        are</strong> (the Google ID and email) or <strong>run the game you're
+        playing</strong> (your handle, predictions, votes, and score). We do not
+        use any of it for advertising, profiling, or any purpose beyond operating
+        Consensus 3D.</p>
+
+      <h3 id="p-share"><span class="n">03</span>Who sees it</h3>
+      <table class="data">
+        <thead><tr><th>Recipient</th><th>What they get</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Google</td><td>Nothing beyond the standard OAuth handshake</td><td>They are the identity provider you chose to sign in with</td></tr>
+          <tr><td><span class="placeholder">[hosting provider]</span></td><td>Everything, as our infrastructure host</td><td>They run the database and server this account data lives on</td></tr>
+          <tr><td>Anyone else</td><td>Nothing</td><td>We do not sell, rent, or otherwise share account data with third parties</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="p-public"><span class="n">04</span>What's shown publicly</h3>
+      <p>Your <strong>handle</strong> and your <strong>gameplay results</strong>
+        (predictions, tier, score, rank) appear on public leaderboards and result
+        boards — that public record is the point of the game. Your
+        <strong>email address is never displayed anywhere</strong>, to any other
+        player, at any time.</p>
+
+      <h3 id="p-cookies"><span class="n">05</span>Cookies</h3>
+      <p>We set exactly two, both first-party and neither used for tracking or
+        advertising:</p>
+      <ul>
+        <li><strong>A session cookie</strong> — cryptographically signed proof
+          you're signed in. HTTP-only (invisible to page scripts), and required
+          for the game to know who you are.</li>
+        <li><strong>A short-lived sign-in state cookie</strong> — exists only
+          during the few seconds of the Google sign-in handshake, to prevent a
+          forged login request; deleted immediately after.</li>
+      </ul>
+
+      <h3 id="p-retain"><span class="n">06</span>Retention &amp; deletion</h3>
+      <p>We keep account and gameplay data for as long as your account exists.
+        To request deletion of your account and associated data, contact
+        <span class="placeholder">[privacy contact email]</span>. <span class="placeholder">
+        [This is currently a manual process — note here if/when a self-service
+        "delete my account" option ships, and what, if anything, is retained
+        after deletion for audit or legal purposes.]</span></p>
+
+      <h3 id="p-children"><span class="n">07</span>Age</h3>
+      <p>Consensus 3D requires signing in with a Google Account, so our practical
+        floor is whatever minimum age Google itself sets for account holders in
+        your country. <span class="placeholder">[State your own minimum age here
+        if you want a stricter floor than Google's own — e.g. "you must also be
+        at least 18," if that matches your risk tolerance and target audience.]</span></p>
+
+      <h3 id="p-rights"><span class="n">08</span>Your rights</h3>
+      <p>Depending on where you live, you may have rights to access, correct, or
+        delete your personal data, or to object to or restrict its use (for
+        example under the EU/UK GDPR or the California CCPA/CPRA). To exercise
+        any of these, contact <span class="placeholder">[privacy contact email]</span>.
+        <span class="placeholder">[If you expect EU/UK or California users
+        specifically, this section deserves real legal drafting — the rights,
+        response deadlines, and required disclosures differ by law.]</span></p>
+    </section>
+
+    <section class="doc-part" id="terms">
+      <h2>Terms of Service</h2>
+      <p class="part-dek">Plain-language summary: it's a free prediction game,
+        played for points and streaks with no cash value, no purchases, and no
+        real-money prizes. Play fairly, don't abuse it, and understand it's
+        provided as-is.</p>
+
+      <h3 id="t-service"><span class="n">01</span>The service</h3>
+      <p>Consensus 3D is a game in which players predict and vote on a daily
+        outcome. Scoring is expressed as <strong>points and streaks with no cash
+        value, no redemption, and no transfer between accounts</strong> — there is
+        no purchase path anywhere in the product and none is planned for this
+        version.</p>
+
+      <h3 id="t-eligibility"><span class="n">02</span>Eligibility</h3>
+      <p>You need a Google Account in good standing to sign in. You are
+        responsible for the activity that happens under your account.</p>
+
+      <h3 id="t-nogambling"><span class="n">03</span>This is not gambling</h3>
+      <div class="callout">
+        <span class="k">Deliberately, structurally true</span>
+        Nothing in Consensus 3D can be purchased, wagered, cashed out, or
+        exchanged for money or anything of monetary value. Outcomes are scored in
+        points and streaks only. <span class="placeholder">[Confirm this framing
+        against the gambling/gaming regulations of every jurisdiction you launch
+        in before relying on it — the legal line for "prediction game" vs.
+        "regulated gaming" is jurisdiction-specific and this paragraph is not a
+        substitute for that review.]</span>
+      </div>
+
+      <h3 id="t-conduct"><span class="n">04</span>Conduct</h3>
+      <p>You agree not to:</p>
+      <ul>
+        <li>Use automation, scripts, or multiple accounts to manipulate voting
+          or predictions;</li>
+        <li>Attempt to access another player's account or data;</li>
+        <li>Interfere with, disrupt, or attempt to bypass the game's security
+          or rate limits;</li>
+        <li>Use the service for anything unlawful.</li>
+      </ul>
+      <p>We may suspend or terminate an account for violating any of the above.</p>
+
+      <h3 id="t-ip"><span class="n">05</span>Ownership</h3>
+      <p>The Consensus 3D name, design, and underlying software are
+        <span class="placeholder">[owned by you / your company — state the
+        entity]</span>. Your own gameplay history remains associated with your
+        account for as long as it exists, per the retention section above.</p>
+
+      <h3 id="t-warranty"><span class="n">06</span>Provided as-is</h3>
+      <p>The service is provided <strong>"as is" and "as available,"</strong>
+        without warranties of any kind, express or implied, including
+        merchantability, fitness for a particular purpose, or non-infringement.
+        We do not guarantee the service will be uninterrupted, error-free, or
+        available at any particular time.</p>
+
+      <h3 id="t-liability"><span class="n">07</span>Limitation of liability</h3>
+      <p>To the fullest extent permitted by law, <span class="placeholder">
+        [your entity name]</span> is not liable for any indirect, incidental, or
+        consequential damages arising from your use of the service. Our total
+        liability for any claim is limited to
+        <span class="placeholder">[a stated cap, e.g. the amount you paid us in
+        the last 12 months — which for a free product may be $0; decide this
+        deliberately with counsel rather than leaving it unstated]</span>.</p>
+
+      <h3 id="t-termination"><span class="n">08</span>Termination</h3>
+      <p>You may stop using the service at any time. We may suspend or terminate
+        any account, or the service itself, at our discretion, including for
+        conduct that violates these terms.</p>
+
+      <h3 id="t-law"><span class="n">09</span>Governing law</h3>
+      <p>These terms are governed by the laws of
+        <span class="placeholder">[your jurisdiction, e.g. "the State of
+        Delaware, USA" or "India"]</span>, without regard to conflict-of-law
+        principles. <span class="placeholder">[Add a dispute-resolution clause —
+        arbitration, small claims, or courts of a named venue — if you want one;
+        none is assumed here.]</span></p>
+
+      <h3 id="t-contact"><span class="n">10</span>Contact</h3>
+      <p>Questions about these terms or your data: <span class="placeholder">
+        [contact email]</span>.</p>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="shell foot__inner">
+    <b>This is a draft.</b> Every <span class="placeholder">bracketed</span> field
+    needs a real value, and the whole document needs a licensed lawyer's review —
+    in particular the gambling-law framing (§ Terms 03) and any GDPR/CCPA
+    obligations (§ Privacy 08) — before this is the operative policy for a public
+    launch.
+  </div>
+</footer>
+
+</body>
+</html>
