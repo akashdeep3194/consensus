@@ -88,7 +88,7 @@
 .step__foot { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 
 /* ── Slate ──────────────────────────────────────────────────────────────── */
-.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
+.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); }
 .slot {
   display: flex; flex-direction: column; gap: var(--s2); align-items: center;
   background: none; border: 0; padding: 0; cursor: pointer; min-width: 0;
@@ -110,18 +110,23 @@
 @media (max-width: 400px) { .slot__box { height: 78px; font-size: 34px; } }
 
 /* ── Keypad ─────────────────────────────────────────────────────────────── */
-/* `align-items: start` leaves the key's block size auto, which is what lets
-   aspect-ratio resolve from the column width. */
-.keypad { display: grid; grid-template-columns: repeat(10, 1fr); gap: var(--s1); align-items: start; }
-@media (max-width: 560px) { .keypad { grid-template-columns: repeat(5, 1fr); gap: var(--s2); } }
+/* A phone dial pad, not ten keys in reading order: 1-2-3 / 4-5-6 / 7-8-9 /
+   ·-0-⌫. Three columns at every width — this widget is meant to be operated
+   with a thumb, so it never grows past a size that stops being one.
+   `minmax(0, ...)` (not bare 1fr) is what lets the tracks actually shrink to
+   fit a narrow screen instead of forcing the page wider than the viewport. */
+.keypad {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2); max-width: 320px;
+}
 .key {
-  aspect-ratio: 1;
+  aspect-ratio: 1.4;
   background: var(--sunk); border: 1px solid var(--line-2); border-radius: var(--radius);
-  color: var(--ink-2); font-family: var(--data); font-size: var(--t-base);
+  color: var(--ink-2); font-family: var(--data); font-size: var(--t-h);
   font-weight: var(--w-book); cursor: pointer; padding: 0;
   transition: background .13s, border-color .13s, color .13s, opacity .13s;
 }
-.keypad--lg .key { font-size: var(--t-h); font-weight: var(--w-light); }
+.keypad--lg .key { font-size: 26px; font-weight: var(--w-light); }
 .key:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
 .key.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: var(--w-mid); }
 /* A digit already on the slate cannot be picked again, so the slate has no
@@ -129,6 +134,16 @@
 .key.is-used { opacity: .22; background: none; }
 .key:disabled { cursor: not-allowed; }
 .key:disabled:not(.is-used):not(.is-on) { opacity: .4; }
+/* The blank corner that centres "0" the way a phone's own pad does. */
+.key--spacer { background: none; border: none; }
+/* The clear/backspace key: same size and grid cell as a digit, styled as a
+   quieter, secondary action rather than a third voice on the pad. */
+.key--back {
+  font-family: var(--ui); font-size: var(--t-lead); color: var(--ink-3);
+  background: none; border: 1px solid var(--line);
+}
+.key--back:hover:not(:disabled) { color: var(--claret); border-color: var(--claret-line); background: var(--claret-wash); }
+.key--back:disabled { opacity: .3; cursor: not-allowed; }
 
 /* ── Leaders strip ──────────────────────────────────────────────────────── */
 .leaders {
@@ -303,8 +318,8 @@
 /* A commitment root is a literal — never re-cased by a label style. */
 .reveal__caption .hash { text-transform: none; letter-spacing: .04em; color: var(--ink-2); }
 
-.tiers { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s2); }
-@media (max-width: 560px) { .tiers { grid-template-columns: repeat(3, 1fr); } }
+.tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); }
+@media (max-width: 560px) { .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .tier {
   background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--radius); padding: var(--s3); text-align: center;

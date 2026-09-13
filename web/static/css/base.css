@@ -3,7 +3,14 @@
    No component lives here.
    ──────────────────────────────────────────────────────────────────────── */
 
-*, *::before, *::after { box-sizing: border-box; }
+/* min-width:0 on everything, not just box-sizing: this page nests flex
+   containers several levels deep (body > #game > .stage > .view > .card >
+   .slots/.keypad), and a flex item's default min-width (auto) refuses to
+   shrink below its content at EVERY one of those levels — fixing only the
+   outermost one leaves an inner one still forcing the page wider than the
+   viewport. Blanket-safe: min-width:0 only changes behaviour for flex/grid
+   items in the first place, so it's a no-op everywhere else. */
+*, *::before, *::after { box-sizing: border-box; min-width: 0; }
 
 /* Components set `display`, which outranks the UA's `[hidden]{display:none}`.
    Hiding must win regardless of what a component declares. */
@@ -25,6 +32,12 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* A flex child's default min-width is auto — it refuses to shrink below
+     its content's own intrinsic width. Without this, one wide descendant
+     anywhere on the page forces the whole body wider than the viewport,
+     silently pushing the far edge off-screen with no scrollbar to reveal
+     it. This is the actual backstop; the fix below is the root cause. */
+  overflow-x: hidden;
 }
 
 /* The one place a horizontal gutter is declared. */

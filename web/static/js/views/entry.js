@@ -33,20 +33,6 @@ export function createEntry({ onDraftChange, onGoRoom }) {
   const complete  = () => placed().length === 3;
 
   // ── keypads ─────────────────────────────────────────────────────────────
-  const slateKeys = createKeypad($("slateKeys"), (digit) => {
-    const next = local.slate.indexOf(null);   // fills the first gap, wherever it is
-    if (next === -1) return;
-    local.slate[next] = digit;
-    paint();
-    emit();
-  });
-
-  const voteKeys = createKeypad($("voteKeys"), (digit) => {
-    local.vote = digit;
-    paint();
-    emit();
-  });
-
   const clearSlot = (i) => {
     if (!editable() || local.slate[i] === null) return;
     // Clear only the box that was tapped. Collapsing left would move digits
@@ -56,6 +42,32 @@ export function createEntry({ onDraftChange, onGoRoom }) {
     paint();
     emit();
   };
+
+  /** The pad's own ⌫ key: undo the most recently placed digit, wherever it
+   * landed. Complements tapping a specific slot — this is the fast, no-look
+   * "I typed the wrong one" undo a phone keypad trains you to expect. */
+  const backspace = () => {
+    const last = placed().length - 1;
+    if (last >= 0) clearSlot(last);
+  };
+
+  const slateKeys = createKeypad(
+    $("slateKeys"),
+    (digit) => {
+      const next = local.slate.indexOf(null);   // fills the first gap, wherever it is
+      if (next === -1) return;
+      local.slate[next] = digit;
+      paint();
+      emit();
+    },
+    { onBackspace: backspace },
+  );
+
+  const voteKeys = createKeypad($("voteKeys"), (digit) => {
+    local.vote = digit;
+    paint();
+    emit();
+  });
 
   $("slots").querySelectorAll(".slot").forEach((node) =>
     on(node, "click", () => clearSlot(Number(node.dataset.pos))));
@@ -75,17 +87,18 @@ export function createEntry({ onDraftChange, onGoRoom }) {
     });
   }
 
+  /** digit -> its button, regardless of where the phone-style pad puts it
+   * on screen (DOM order is no longer the same as digit order). */
+  const keyFor = (mount, digit) => mount.querySelector(`[data-digit="${digit}"]`);
+
   /** Digit keys and backspace, forwarded by the router while Play is open. */
   function handleKey(key) {
     if (!editable()) return;
     if (step === "slate") {
-      if (/^[0-9]$/.test(key)) $("slateKeys").children[Number(key)].click();
-      if (key === "Backspace") {
-        const last = placed().length - 1;
-        if (last >= 0) clearSlot(last);
-      }
+      if (/^[0-9]$/.test(key)) keyFor($("slateKeys"), key)?.click();
+      if (key === "Backspace") backspace();
     } else if (step === "vote" && /^[0-9]$/.test(key)) {
-      $("voteKeys").children[Number(key)].click();
+      keyFor($("voteKeys"), key)?.click();
     }
   }
 
@@ -158,7 +171,9 @@ export function createEntry({ onDraftChange, onGoRoom }) {
   function paint() {
     STEPS.forEach((name) => show($(`step-${name}`), name === step));
 
-    slateKeys.render({ used: placed(), frozen: !editable() || complete() });
+    // `full` only stops new digits from being picked; it never disables ⌫ —
+    // clearing one to re-rank is exactly what you want with all three set.
+    slateKeys.render({ used: placed(), frozen: !editable(), full: complete() });
     voteKeys.render({ selected: local.vote, frozen: !editable() });
 
     local.slate.forEach((digit, i) => {
@@ -167,8 +182,8 @@ export function createEntry({ onDraftChange, onGoRoom }) {
       box.classList.toggle("is-empty", digit === null);
     });
     $("slateHint").textContent = complete()
-      ? "Tap a slot to clear it and re-rank."
-      : "Tap a digit to place it. Tap a slot to clear it.";
+      ? "Tap a slot, or ⌫, to clear and re-rank."
+      : "Tap a digit to place it. Tap a slot, or ⌫, to clear it.";
 
     $("toVote").disabled = !complete();
     $("toReview").disabled = local.vote === null;
