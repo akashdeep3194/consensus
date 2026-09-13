@@ -106,6 +106,7 @@
         <p class="note note--quiet" id="slateHint">Tap a digit to place it. Tap a slot, or ⌫, to clear it.</p>
         <div class="step__foot">
           <button class="btn btn--primary" id="toVote" type="button" disabled>Next</button>
+          <span class="status" id="slateStatus"></span>
         </div>
       </div>
 
@@ -115,13 +116,15 @@
           <h2 class="step__title">Cast your vote</h2>
           <p class="step__sub">One digit. This is the part that actually moves the
             count — everyone's votes decide the number. It does not have to be on
-            your slate.</p>
+            your slate. The room's tally only refreshes every few minutes, but
+            your vote is saved the moment you pick it.</p>
         </header>
         <div class="keypad keypad--lg" id="voteKeys"></div>
         <div class="leaders" id="leaders"></div>
         <div class="step__foot">
           <button class="btn" id="backToSlate" type="button">Back</button>
           <button class="btn btn--primary" id="toReview" type="button" disabled>Review</button>
+          <span class="status" id="voteStatus"></span>
         </div>
       </div>
 

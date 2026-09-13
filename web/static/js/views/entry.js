@@ -216,7 +216,15 @@ export function createEntry({ onDraftChange, onGoRoom }) {
     },
     markSaved(savedEntry, stamp) {
       entry = savedEntry;
-      if (!entry.committed && step === "review") $("status").textContent = `saved ${stamp}`;
+      // Every step gets its own confirmation, not just Review: the room's
+      // own tally is cached for minutes at a time (services.entries
+      // STANDINGS_REFRESH_SECONDS), so it can't be the only proof a vote
+      // actually saved. Whichever step is hidden just holds inert text.
+      if (entry.committed) return;
+      const text = `saved ${stamp}`;
+      $("slateStatus").textContent = text;
+      $("voteStatus").textContent = text;
+      $("status").textContent = text;
     },
     /** Context on the vote step: what the room is doing right now. */
     showLeaders(standings) {
