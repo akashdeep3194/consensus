@@ -18,6 +18,8 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: "https://consensus-api.onrender.com/api/auth/google/callback"
 
 databases:
   - name: consensus-db

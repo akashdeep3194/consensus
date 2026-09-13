@@ -8,6 +8,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Local-only secrets this script has no opinion on (Google OAuth credentials,
+# an explicit SESSION_SECRET) — everything below that dev.sh *does* manage
+# (PG*, DEV_LOGIN, DEMO_ROUND_MINUTES) still wins even if this file sets it.
+[[ -f .env.dev ]] && set -a && source .env.dev && set +a
+
 PORT=${PORT:-8099}
 PGPORT=${PGPORT:-55432}
 DATA=.devdata
