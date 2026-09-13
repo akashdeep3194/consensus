@@ -4,13 +4,14 @@ Thin by design: parse, authorise, delegate to a service, serialise. No game
 rules live here — they are in engine/ and domain/.
 """
 
+import hmac
 import logging
 import pathlib
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -271,9 +272,22 @@ async def _recorded(user_id: UUID, round_id: UUID) -> tuple[int, int] | None:
 
 
 # ── operations ─────────────────────────────────────────────────────────────
+# These can force a round to seal before its real deadline, which changes who
+# wins — every route below requires the operator token (api.deps.Container.
+# admin_token), skipped only in DEV_LOGIN=1 (local runs, tests, the demo
+# scripts), where it is never even reachable in the first place.
 
 
-@app.post("/api/admin/advance")
+async def require_admin(authorization: str | None = Header(None)) -> None:
+    c = C()
+    if c.dev_login_enabled:
+        return
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not token or not hmac.compare_digest(token, c.admin_token):
+        raise HTTPException(401, "invalid admin token")
+
+
+@app.post("/api/admin/advance", dependencies=[Depends(require_admin)])
 async def advance():
     """Run the scheduler sweep now. Exposed so a demo never waits on a worker."""
     await _ensure_current_round()
@@ -288,7 +302,7 @@ async def advance():
     }
 
 
-@app.post("/api/admin/rounds/{round_id}/seal")
+@app.post("/api/admin/rounds/{round_id}/seal", dependencies=[Depends(require_admin)])
 async def force_seal(round_id: UUID):
     """Seal and resolve a round now, regardless of the clock.
 

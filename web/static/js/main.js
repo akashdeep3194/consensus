@@ -146,6 +146,12 @@ const hideError = () => show($("err"), false);
 async function boot() {
   const me = await api.me();
   state.handle = me.handle;
+
+  // The server refuses to act on this button at all outside DEV_LOGIN=1
+  // (api.main.require_admin) — hiding it in production isn't the security
+  // boundary, just not showing a control that would 401 for every visitor.
+  show($("advance"), !!me.dev_enabled);
+
   if (!state.handle) {
     show($("gate"), true);
     if (me.dev_enabled) {
@@ -171,6 +177,7 @@ async function boot() {
   await refresh();
   setInterval(refresh, POLL_MS);
   setInterval(() => topbar.tick(state.round), TICK_MS);
+  setInterval(() => room.tick(), TICK_MS);
 }
 
 boot();

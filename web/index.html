@@ -157,6 +157,7 @@
           <h2 class="step__title">The room</h2>
           <p class="step__sub">Every vote cast so far. The three seated digits are the
             number if the round sealed right now.</p>
+          <p class="note note--quiet" id="standingsRefresh"></p>
         </header>
         <div class="tally" id="tally"></div>
         <div class="projected" id="projected"></div>
@@ -179,7 +180,7 @@
 <footer class="foot">
   <div class="shell foot__inner">
     <span>Every round is committed before it is counted.</span>
-    <button class="btn btn--ghost" id="advance" type="button"
+    <button class="btn btn--ghost" id="advance" type="button" hidden
             title="Run the scheduler sweep now">Advance clock</button>
   </div>
 </footer>

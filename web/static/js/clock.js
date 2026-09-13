@@ -26,5 +26,12 @@ export const coarse = (ms) => {
   return h ? `${h}h ${m % 60}m` : `${m}m`;
 };
 
+/** 04:32 — for a countdown that never reaches an hour (the standings
+ * refresh window is 5 minutes), where an hour column would be dead weight. */
+export const mmss = (ms) => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+};
+
 export const clockTime = () =>
   new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });

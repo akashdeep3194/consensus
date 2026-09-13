@@ -1,6 +1,11 @@
 // The live tally. The three seated digits are the number if the round sealed
 // right now, so they carry the same 1st/2nd/3rd marks the slate slots do.
+//
+// The count itself only actually changes once every five minutes on the
+// server (services.entries.STANDINGS_REFRESH_SECONDS) — the countdown here
+// is that real cache expiry, not a decorative timer.
 import { $ } from "../dom.js";
+import { until, mmss } from "../clock.js";
 
 const SEATS = ["1st", "2nd", "3rd"];
 
@@ -12,9 +17,20 @@ const seatOrder = (counts) =>
 export function createRoom() {
   const body = $("tally");
   const projected = $("projected");
+  const refreshLabel = $("standingsRefresh");
+  let nextRefreshAt = null;
+
+  function renderCountdown() {
+    if (!nextRefreshAt) { refreshLabel.textContent = ""; return; }
+    const left = until(nextRefreshAt);
+    refreshLabel.textContent = left > 0 ? `Refreshes in ${mmss(left)}` : "Refreshing…";
+  }
 
   return {
     render(standings, myVote) {
+      nextRefreshAt = standings?.next_refresh_at ?? null;
+      renderCountdown();
+
       if (!standings?.visible) {
         body.innerHTML = `
           <div class="blind">
@@ -56,5 +72,6 @@ export function createRoom() {
              </div>
            </div>`;
     },
+    tick: renderCountdown,
   };
 }

@@ -1,0 +1,35 @@
+name: Round scheduler sweep
+
+# There is no background worker or task queue in this app (see api.main's
+# admin routes) — round transitions only happen when RoundService.advance_due
+# runs, and the only thing that ever calls it is this sweep or a player's own
+# request hitting GET /api/rounds/current. Without this workflow, a round
+# with zero visitors at its exact phase boundary just waits until the next
+# visitor's request catches it up. This is what makes the published phase
+# times (blackout at T+23h, seal at T+23.5h, reveal at T+24h) actually real
+# rather than "true the next time someone happens to look."
+#
+# GitHub's own cron scheduler is best-effort and can run a few minutes late
+# under load — five minutes here is already the deliberate slack for that,
+# not a corner cut.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}   # manual "run now" from the Actions tab, for testing
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/admin/advance
+        run: |
+          code=$(curl -sS -o /tmp/body.json -w "%{http_code}" \
+            -X POST "https://consensus-api.onrender.com/api/admin/advance" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}")
+          cat /tmp/body.json
+          echo
+          if [ "$code" -ge 300 ]; then
+            echo "::error::sweep failed with HTTP $code"
+            exit 1
+          fi
