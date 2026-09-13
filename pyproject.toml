@@ -9,19 +9,27 @@ dependencies = [
   "asyncpg>=0.29",
   "pydantic>=2.7",
   "itsdangerous>=2.2",
+  "httpx>=0.27",
 ]
 # NOTE: engine/ and domain/ must remain importable with stdlib only.
 # tools/check_layering.py enforces that in CI.
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "hypothesis>=6.100", "ruff>=0.5", "httpx2>=0.28", "pytest-asyncio>=0.23"]
+# httpx is already a main dependency (the Google OAuth adapter needs it at
+# runtime); test_auth.py's MockTransport fixtures use that same install.
+dev = ["pytest>=8.0", "hypothesis>=6.100", "ruff>=0.5", "pytest-asyncio>=0.23"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["engine", "domain", "ports", "adapters", "services", "api"]
+[tool.setuptools.packages.find]
+# find:, not an explicit list — adapters/postgres, adapters/memory and
+# adapters/auth are subpackages, and an explicit list silently drops whatever
+# it doesn't name (adapters.auth on the day it was added, discovered when a
+# real `pip install .` — as opposed to the editable install `make venv`
+# actually runs — would have shipped without it).
+include = ["engine*", "domain*", "ports*", "adapters*", "services*", "api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

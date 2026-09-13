@@ -31,12 +31,12 @@ def main():
     # a visible bloc on 4, a smaller one on 2, the rest scattered
     for i in range(26):
         op = client()
-        call(op, "POST", f"/api/session?handle=rival{i:02d}")
+        call(op, "POST", "/api/session", {"handle": f"rival{i:02d}"})
         vote = 4 if i < 9 else 2 if i < 15 else random.randrange(10)
         slate = "".join(map(str, random.sample(range(10), 3)))
         call(op, "PUT", f"/api/rounds/{rid}/draft", {"prediction": slate, "vote": vote})
-        if i % 2 == 0:
-            call(op, "POST", f"/api/rounds/{rid}/lock", {"idempotency_key": f"seed{i}"})
+    # No lock-in step: there is no manual commit, so a complete draft alone is
+    # already enough to show up in the live standings (§5).
     st = call(client(), "GET", f"/api/rounds/{rid}/standings")
     print(f"live round seeded: {st['total']} votes cast, counts {st['counts']}")
 

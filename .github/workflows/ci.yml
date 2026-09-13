@@ -8,13 +8,46 @@ jobs:
   engine:
     name: engine — correctness gate
     runs-on: ubuntu-latest
+
+    # Without this, every Postgres-backed test (the whole HTTP API suite, both
+    # adapters' conformance tests, the Postgres side of the auth suite) was
+    # silently skipped rather than run — a green check that never touched the
+    # database-backed code path at all.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: consensus
+          POSTGRES_PASSWORD: consensus
+          POSTGRES_DB: consensus
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U consensus"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: consensus
+      PGPASSWORD: consensus
+      PGDATABASE: consensus
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
+
       - name: engine imports nothing outside the stdlib
         run: python -c "import engine, sys; print('engine loaded with', len(sys.modules), 'modules')"
-      - run: ruff check engine tests
-      - name: full suite including the exhaustive sweep
+
+      - name: lint the whole tree, not just engine/
+        run: ruff check .
+
+      - name: layered architecture holds (engine/domain/ports/adapters)
+        run: python tools/check_layering.py
+
+      - name: full suite including the exhaustive sweep, against a real database
         run: pytest -q

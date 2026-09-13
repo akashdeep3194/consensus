@@ -1,7 +1,13 @@
-"""Draft editing and lock-in.
+"""Draft editing and live standings.
 
 The transactional heart of the game (§5). Everything here goes through ports,
 so the same service runs against Postgres in production and in-memory in tests.
+
+There is no user-initiated lock-in. A draft is freely editable for as long as
+the round accepts entries — right up to the same instant for everyone — and
+crosses over to a committed entry only once, automatically, when the round
+seals (services.sealing.SealingService._materialise). Nothing here can commit
+one on demand.
 """
 
 import logging
@@ -10,26 +16,25 @@ from uuid import UUID
 
 from domain.lifecycle import RoundStatus, accepts_entries
 from engine import InvalidPrediction, validate_prediction, validate_vote
-from ports.clock import Clock
 from ports.repositories import (
     CommittedEntry,
     Draft,
-    DraftRepository,
+    DraftStore,
     RoundClosed,
     RoundReader,
     SubmissionReader,
-    SubmissionWriter,
 )
 
 log = logging.getLogger(__name__)
 
 
 class AlreadyCommitted(RuntimeError):
-    """The player has locked in; a committed entry can never be edited (§1.3)."""
+    """The round already committed this entry; it can never be edited (§1.3).
 
-
-class IncompleteEntry(ValueError):
-    """Lock-in needs both a prediction and a vote."""
+    Reachable only in the narrow window where a round's status still nominally
+    accepts entries (SEALING) but this player's draft has already been swept
+    into a submission by the sealing sweep in progress.
+    """
 
 
 def parse_slate(text: str) -> tuple[int, int, int]:
@@ -47,7 +52,7 @@ class EntryState:
     committed: CommittedEntry | None
 
     @property
-    def is_locked(self) -> bool:
+    def is_committed(self) -> bool:
         return self.committed is not None
 
 
@@ -55,14 +60,12 @@ class EntryService:
     def __init__(
         self,
         rounds: RoundReader,
-        drafts: DraftRepository,
-        submissions: SubmissionReader | SubmissionWriter,
-        clock: Clock,
+        drafts: DraftStore,
+        submissions: SubmissionReader,
     ) -> None:
         self._rounds = rounds
         self._drafts = drafts
         self._submissions = submissions
-        self._clock = clock
 
     async def state(self, round_id: UUID, user_id: UUID) -> EntryState:
         committed = await self._submissions.get_for_user(round_id, user_id)
@@ -83,7 +86,7 @@ class EntryService:
         if not accepts_entries(record.status):
             raise RoundClosed(f"round is {record.status}")
         if (await self._submissions.get_for_user(round_id, user_id)) is not None:
-            raise AlreadyCommitted("entry is locked in and cannot be edited")
+            raise AlreadyCommitted("entry is committed and cannot be edited")
 
         if prediction is not None:
             parse_slate(prediction)                    # validate before persisting
@@ -93,41 +96,14 @@ class EntryService:
             round_id, user_id, prediction, vote, expected_version
         )
 
-    async def lock_in(
-        self,
-        round_id: UUID,
-        user_id: UUID,
-        idempotency_key: str | None = None,
-    ) -> CommittedEntry:
-        """Commit the player's draft. DRAFT -> COMMITTED, irreversible (§5.1)."""
-        record = await self._rounds.get(round_id)
-        if not accepts_entries(record.status):
-            raise RoundClosed(f"round is {record.status}")
-
-        existing = await self._submissions.get_for_user(round_id, user_id)
-        if existing is not None:
-            return existing                            # idempotent by nature
-
-        draft = await self._drafts.get(round_id, user_id)
-        if draft is None or not draft.is_complete:
-            raise IncompleteEntry("a prediction and a vote are both required")
-
-        parse_slate(draft.prediction)
-        validate_vote(draft.vote)
-
-        eligible = record.schedule.mandate_eligible(self._clock.now())
-        entry = await self._submissions.commit_entry(
-            round_id, user_id, draft.prediction, draft.vote, eligible, idempotency_key
-        )
-        await self._drafts.delete(round_id, user_id)
-        log.info(
-            "locked in round=%s user=%s seq=%s mandate=%s",
-            round_id, user_id, entry.commit_sequence, eligible,
-        )
-        return entry
-
     async def metrics_for(self, round_id: UUID) -> dict | None:
         """Live vote standings — the coordination signal (ruleset §5).
+
+        Sourced from drafts, not submissions: with no manual lock-in, nothing
+        is a committed entry until the round seals, so the only record of "who
+        has voted so far" during OPEN is what is currently drafted. A draft
+        counts once it holds both a prediction and a vote — the same
+        completeness bar a committed entry has always needed.
 
         Returns None during blackout and after: the dark hour serves nothing
         rather than serving something subtly different (F8).
@@ -137,9 +113,8 @@ class EntryService:
             return None
         counts = [0] * 10
         total = 0
-        async for chunk in self._submissions.iter_round(round_id, 1000):
-            for e in chunk:
-                if e.voided_at is None:
-                    counts[e.vote] += 1
-                    total += 1
+        async for chunk in self._drafts.iter_complete(round_id, 1000):
+            for d in chunk:
+                counts[d.vote] += 1
+                total += 1
         return {"counts": counts, "total": total}

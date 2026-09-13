@@ -10,16 +10,16 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import Cookie, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from adapters.postgres import apply_migrations, create_pool
-from api.deps import Container, user_id_for
+from api.auth import get_current_user_resolver, register_auth_routes
+from api.deps import Container
 from api.schemas import (
     DraftIn,
     EntryOut,
-    LockIn,
     MandateRow,
     MyResultOut,
     ResultOut,
@@ -29,7 +29,7 @@ from api.schemas import (
 from domain.lifecycle import RoundStatus
 from engine import InvalidPrediction, InvalidVote
 from ports.repositories import ConcurrentModification, RoundClosed, RoundNotFound
-from services.entries import AlreadyCommitted, IncompleteEntry
+from services.entries import AlreadyCommitted
 from services.rounds import RoundView
 from services.scoring import award
 
@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     container = Container.build(pool)
     await _ensure_current_round()
     yield
-    await pool.close()
+    await container.aclose()
 
 
 app = FastAPI(title="Consensus 3D", version="1.1.0", lifespan=lifespan)
@@ -63,68 +63,12 @@ def C() -> Container:
 
 
 # ── auth ───────────────────────────────────────────────────────────────────
-# Dev-mode identity: a signed-in name maps to a stable user id. OAuth will
-# replace the body of `current_user` without touching anything downstream,
-# because the rest of the app only ever sees a UUID.
+# Real identity (services.auth, api.auth): Google OAuth mints the same signed
+# session cookie dev sign-in does, so nothing downstream of `current_user`
+# ever needs to know which one a player used.
 
-
-async def current_user(cx_user: str | None = Cookie(None)) -> UUID:
-    if not cx_user:
-        raise HTTPException(401, "sign in first")
-    return user_id_for("dev", cx_user)
-
-
-async def _ensure_user_row(user_id: UUID, handle: str) -> None:
-    await C().pool.execute(
-        """INSERT INTO users (user_id, external_id, provider)
-           VALUES ($1,$2,'dev') ON CONFLICT DO NOTHING""",
-        user_id, handle,
-    )
-
-
-@app.post("/api/session")
-async def sign_in(response: Response, handle: str):
-    handle = handle.strip()[:32]
-    if not handle:
-        raise HTTPException(400, "a handle is required")
-    uid = user_id_for("dev", handle)
-    await _ensure_user_row(uid, handle)
-    response.set_cookie("cx_user", handle, httponly=True, samesite="lax", max_age=86400 * 30)
-    return {"handle": handle, "user_id": str(uid)}
-
-
-@app.delete("/api/session")
-async def sign_out(response: Response):
-    response.delete_cookie("cx_user")
-    return {"ok": True}
-
-
-@app.get("/dev/login")
-async def dev_login(handle: str):
-    """One-click sign-in for local demos. Disabled unless DEV_LOGIN=1.
-
-    Never enable this in a deployed environment: it mints a session from a query
-    string. It exists so `make demo` can hand you a working link.
-    """
-    import os
-
-    from fastapi.responses import RedirectResponse
-
-    if os.environ.get("DEV_LOGIN") != "1":
-        raise HTTPException(404, "not found")
-    handle = handle.strip()[:32] or "guest"
-    uid = user_id_for("dev", handle)
-    await _ensure_user_row(uid, handle)
-    res = RedirectResponse("/", status_code=303)
-    res.set_cookie("cx_user", handle, httponly=True, samesite="lax", max_age=86400)
-    return res
-
-
-@app.get("/api/me")
-async def me(cx_user: str | None = Cookie(None)):
-    if not cx_user:
-        return {"handle": None}
-    return {"handle": cx_user, "user_id": str(user_id_for("dev", cx_user))}
+current_user = get_current_user_resolver(C)
+register_auth_routes(app, C)
 
 
 # ── rounds ─────────────────────────────────────────────────────────────────
@@ -197,26 +141,28 @@ async def standings(round_id: UUID):
 
 
 @app.get("/api/rounds/{round_id}/entry", response_model=EntryOut)
-async def my_entry(round_id: UUID, cx_user: str | None = Cookie(None)):
-    user_id = await current_user(cx_user)
+async def my_entry(round_id: UUID, user_id: UUID = Depends(current_user)):  # noqa: B008
     state = await C().entries.state(round_id, user_id)
     if state.committed:
         e = state.committed
         return EntryOut(
-            locked=True, prediction=e.prediction, vote=e.vote,
+            committed=True, prediction=e.prediction, vote=e.vote,
             commit_sequence=e.commit_sequence, mandate_eligible=e.mandate_eligible,
             committed_at=e.committed_at,
         )
     if state.draft:
         d = state.draft
-        return EntryOut(locked=False, prediction=d.prediction, vote=d.vote, version=d.version)
-    return EntryOut(locked=False)
+        return EntryOut(
+            committed=False, prediction=d.prediction, vote=d.vote,
+            version=d.version, updated_at=d.updated_at,
+        )
+    return EntryOut(committed=False)
 
 
 @app.put("/api/rounds/{round_id}/draft", response_model=EntryOut)
-async def save_draft(round_id: UUID, body: DraftIn, cx_user: str | None = Cookie(None)):
-    user_id = await current_user(cx_user)
-    await _ensure_user_row(user_id, cx_user or "")
+async def save_draft(
+    round_id: UUID, body: DraftIn, user_id: UUID = Depends(current_user)  # noqa: B008
+):
     try:
         draft = await C().entries.save_draft(
             round_id, user_id, body.prediction, body.vote, body.version
@@ -232,25 +178,8 @@ async def save_draft(round_id: UUID, body: DraftIn, cx_user: str | None = Cookie
     except (InvalidPrediction, InvalidVote) as exc:
         raise HTTPException(422, str(exc)) from exc
     return EntryOut(
-        locked=False, prediction=draft.prediction, vote=draft.vote, version=draft.version
-    )
-
-
-@app.post("/api/rounds/{round_id}/lock", response_model=EntryOut)
-async def lock_in(round_id: UUID, body: LockIn, cx_user: str | None = Cookie(None)):
-    user_id = await current_user(cx_user)
-    try:
-        entry = await C().entries.lock_in(round_id, user_id, body.idempotency_key)
-    except RoundNotFound as exc:
-        raise HTTPException(404, "round not found") from exc
-    except RoundClosed as exc:
-        raise HTTPException(409, str(exc)) from exc
-    except IncompleteEntry as exc:
-        raise HTTPException(422, str(exc)) from exc
-    return EntryOut(
-        locked=True, prediction=entry.prediction, vote=entry.vote,
-        commit_sequence=entry.commit_sequence, mandate_eligible=entry.mandate_eligible,
-        committed_at=entry.committed_at,
+        committed=False, prediction=draft.prediction, vote=draft.vote,
+        version=draft.version, updated_at=draft.updated_at,
     )
 
 
@@ -297,16 +226,12 @@ async def result(round_id: UUID):
 async def _handles(user_ids: set[str]) -> dict[str, str]:
     if not user_ids:
         return {}
-    rows = await C().pool.fetch(
-        "SELECT user_id, external_id FROM users WHERE user_id = ANY($1::uuid[])",
-        [UUID(u) for u in user_ids],
-    )
-    return {str(r["user_id"]): r["external_id"] for r in rows}
+    handles = await C().users.get_handles([UUID(u) for u in user_ids])
+    return {str(uid): h for uid, h in handles.items()}
 
 
 @app.get("/api/rounds/{round_id}/my-result", response_model=MyResultOut)
-async def my_result(round_id: UUID, cx_user: str | None = Cookie(None)):
-    user_id = await current_user(cx_user)
+async def my_result(round_id: UUID, user_id: UUID = Depends(current_user)):  # noqa: B008
     r = await _result_for(round_id)
     mine = next((p for p in r.players if p.user_id == str(user_id)), None)
     if mine is None:
@@ -454,7 +379,8 @@ async def _record_results(round_id: UUID, result) -> None:
 @app.get("/api/leaderboard")
 async def leaderboard(limit: int = 20):
     rows = await C().pool.fetch(
-        """SELECT u.external_id AS handle, s.total_points, s.streak, s.best_streak,
+        """SELECT COALESCE(u.handle, u.external_id) AS handle,
+                  s.total_points, s.streak, s.best_streak,
                   s.trifectas, s.boxed, s.rounds_played
            FROM user_seasons s JOIN users u USING (user_id)
            ORDER BY s.total_points DESC, s.best_streak DESC LIMIT $1""",

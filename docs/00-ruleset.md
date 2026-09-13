@@ -106,19 +106,24 @@ Three properties make this the right metric:
    separates strictly further, reaching ~670 of 720 at realistic vote volumes. (The
    exact figure depends on the count vector; the 120 cap is structural.)
 
-**Eligibility: only entries committed before T+12h score on this board.** Without
-that cutoff the board is a copying contest — the vote distribution is public, so a
-player who checks the standings just before blackout scores 99.99% of maximum and
-is beaten by roughly one prediction in 720. An early lock carries genuine risk: the
-slate leading at T+12h keeps the same three digits only 18–46% of the time.
+**Eligibility: only drafts last edited before T+12h score on this board.** There is
+no manual lock-in — a draft is edited freely for as long as the round accepts
+entries — so eligibility is decided by silence, not by an action: whatever a
+player's draft holds at T+12h is what counts, provided they don't touch it again
+before the round seals. Without that cutoff the board is a copying contest — the
+vote distribution is public, so a player who edits their slate just before
+blackout scores 99.99% of maximum and is beaten by roughly one prediction in 720.
+Settling early carries genuine risk: the slate leading at T+12h keeps the same
+three digits only 18–46% of the time.
 
-Late lock-ins and drafts auto-committed at seal still compete for the Trifecta —
-they simply do not appear on this board.
+A draft still being edited after T+12h — and every draft, since none commit any
+other way — still competes for the Trifecta once the round seals; it simply does
+not appear on this board.
 
 > This does not violate the no-timestamp-tie-break invariant. That invariant governs
 > the winner set for the number, and it is untouched: no player's Board A standing
-> depends on when they committed. Board B is an opt-in contest with an entry
-> deadline, which is a different thing.
+> depends on when their entry was finalised. Board B is an opt-in contest with an
+> entry deadline, which is a different thing.
 
 ### 3.3 Why two boards and not one merged ranking
 
@@ -190,11 +195,13 @@ Unchanged from v2.1 §1.1.
 
 | Phase | Time | Behaviour |
 |---|---|---|
-| Open | T+0 → T+23h | Drafts editable, manual lock-in, live public metrics |
-| Blackout | T+23h → T+24h | Live metrics hidden; submissions still accepted |
-| Sealing | T+24h | No mutations; valid remaining drafts auto-commit |
+| Open | T+0 → T+23h | Drafts freely editable; live public metrics |
+| Blackout | T+23h → T+24h | Live metrics hidden; drafts still editable |
+| Sealing | T+24h | No mutations; every complete draft commits automatically |
 | Resolution | T+24h → T+30h | Immutable tally, ranking, winners, audit |
 | Reveal | T+30h | Winning number, histogram, personal result, audit |
 
-Manual lock-in and deadline auto-lock are the same transition: `DRAFT → COMMITTED`.
-Only the initiator differs.
+There is no manual lock-in. Every draft crosses `DRAFT → COMMITTED` at the same
+instant — the moment the round seals — applied uniformly to whatever is on record
+for each player at that instant. Editing has no separate "off switch": the round
+closing is the only thing that ends it, and it ends it for everyone together.

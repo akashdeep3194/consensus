@@ -1,6 +1,6 @@
 """HTTP-level tests: a whole round, through the real API.
 
-Covers the path a browser actually takes — session, draft, lock-in, seal,
+Covers the path a browser actually takes — session, draft edits, seal,
 result — so a regression in wiring is caught even when every unit test passes.
 """
 
@@ -35,11 +35,12 @@ def sign_in(client, name: str) -> dict:
 
     One TestClient for the whole module: the app's connection pool is bound to
     that client's event loop, so spawning another client per player would cross
-    loops. Identity travels as an explicit cookie instead of shared jar state.
+    loops. Identity travels as an explicit cookie instead of shared jar state —
+    the real signed session cookie dev sign-in mints, not a stand-in for it.
     """
-    client.post(f"/api/session?handle={name}")
+    signed_cookie = client.post("/api/session", json={"handle": name}).cookies["cx_session"]
     client.cookies.clear()
-    return {"cookies": {"cx_user": name}}
+    return {"cookies": {"cx_session": signed_cookie}}
 
 
 def test_health(client):
@@ -74,23 +75,36 @@ def test_vote_out_of_range_is_rejected(client):
     assert bad.status_code == 422
 
 
-def test_draft_then_lock_then_immutable(client):
+def test_draft_stays_editable_with_no_manual_commit(client):
+    """There is no user-initiated lock-in (§6): a draft is edited freely, as
+    many times as the player likes, for as long as the round accepts entries.
+    """
     rid = client.get("/api/rounds/current").json()["round_id"]
     who = sign_in(client, handle())
 
     saved = client.put(
         f"/api/rounds/{rid}/draft", json={"prediction": "527", "vote": 5}, **who
     ).json()
-    assert saved["version"] == 1 and saved["locked"] is False
+    assert saved["version"] == 1 and saved["committed"] is False
 
-    locked = client.post(f"/api/rounds/{rid}/lock", json={"idempotency_key": "k1"}, **who).json()
-    assert locked["locked"] is True and locked["commit_sequence"] >= 1
+    revised = client.put(
+        f"/api/rounds/{rid}/draft",
+        json={"prediction": "418", "vote": 4, "version": 1}, **who
+    ).json()
+    assert revised["version"] == 2 and revised["committed"] is False
+    assert revised["prediction"] == "418", "edits replace the draft, they don't merge with it"
 
-    again = client.post(f"/api/rounds/{rid}/lock", json={"idempotency_key": "k1"}, **who).json()
-    assert again["commit_sequence"] == locked["commit_sequence"], "retry must not duplicate"
+    # The old manual commit route is gone outright, not merely disabled.
+    assert client.post(f"/api/rounds/{rid}/lock", json={}, **who).status_code == 404
 
-    after = client.put(f"/api/rounds/{rid}/draft", json={"prediction": "123", "vote": 1}, **who)
-    assert after.status_code == 409, "a committed entry can never be edited (§1.3)"
+
+def test_incomplete_draft_can_still_be_saved(client):
+    """Completeness only matters at seal (§4) — saving is never gated on it."""
+    rid = client.get("/api/rounds/current").json()["round_id"]
+    who = sign_in(client, handle())
+    r = client.put(f"/api/rounds/{rid}/draft", json={"prediction": "527"}, **who)  # no vote
+    assert r.status_code == 200
+    assert r.json()["committed"] is False
 
 
 def test_stale_version_conflicts(client):
@@ -104,13 +118,6 @@ def test_stale_version_conflicts(client):
         f"/api/rounds/{rid}/draft", json={"prediction": "456", "vote": 4, "version": 1}, **who
     )
     assert stale.status_code == 409
-
-
-def test_lock_without_a_complete_draft_is_rejected(client):
-    rid = client.get("/api/rounds/current").json()["round_id"]
-    who = sign_in(client, handle())
-    client.put(f"/api/rounds/{rid}/draft", json={"prediction": "527"}, **who)     # no vote
-    assert client.post(f"/api/rounds/{rid}/lock", json={}, **who).status_code == 422
 
 
 def test_full_round_seals_resolves_and_scores(client):
@@ -130,19 +137,18 @@ def test_full_round_seals_resolves_and_scores(client):
         who = sign_in(client, handle())
         vote = 7 if i < 5 else i
         client.put(f"/api/rounds/{rid}/draft", json={"prediction": "715", "vote": vote}, **who)
-        if i % 2 == 0:
-            client.post(f"/api/rounds/{rid}/lock", json={"idempotency_key": f"e{i}"}, **who)
         players.append(who)
 
     live = client.get(f"/api/rounds/{rid}/standings").json()
     assert live["visible"] is True
+    assert live["total"] == 9, "every complete draft counts, with no lock-in step"
 
     sealed = client.post(f"/api/admin/rounds/{rid}/seal").json()
     assert len(sealed["winning_number"]) == 3
     assert len(set(sealed["winning_number"])) == 3, "always three distinct digits"
     assert len(sealed["commitment_root"]) == 64
-    assert sealed["total_submissions"] == 9, "incomplete drafts auto-commit at seal"
-    assert sealed["auto_committed"] == 4, "the four unlocked drafts commit at seal"
+    assert sealed["total_submissions"] == 9
+    assert sealed["auto_committed"] == 9, "every complete draft auto-commits at seal"
 
     dark = client.get(f"/api/rounds/{rid}/standings").json()
     assert dark["visible"] is False, "standings must close once the round is sealed"
@@ -158,6 +164,13 @@ def test_full_round_seals_resolves_and_scores(client):
     assert mine["tier"] in ("TRIFECTA", "BOXED", "TWO", "ONE", "NONE")
     assert mine["points"] >= 0
     assert 1 <= mine["vote_finished"] <= 10
+
+    entry0 = client.get(f"/api/rounds/{rid}/entry", **players[0]).json()
+    assert entry0["committed"] is True
+    assert entry0["mandate_eligible"] is True, (
+        "saved immediately and never touched again — well before the mandate "
+        "deadline, so auto-commit at seal must still count it for Board B"
+    )
 
     board = client.get("/api/leaderboard?limit=5").json()
     assert isinstance(board, list)

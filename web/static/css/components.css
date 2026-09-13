@@ -168,6 +168,65 @@
 }
 .btn--ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--line-2); }
 
+.auth-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  max-width: 420px;
+  margin-top: var(--s3);
+}
+.btn--google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--radius);
+  padding: 12px var(--s5);
+  font-family: var(--ui);
+  font-size: var(--t-fine);
+  font-weight: var(--w-mid);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.btn--google:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.btn--google.is-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.google-icon {
+  flex-shrink: 0;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin-block: var(--s3);
+  color: var(--ink-3);
+  font-size: var(--t-micro);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--line);
+}
+.auth-divider span {
+  padding-inline: var(--s3);
+}
+
+
 .status { font-size: var(--t-fine); color: var(--ink-3); }
 
 .field__input {

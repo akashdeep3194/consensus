@@ -1,7 +1,6 @@
 """Repository contracts.
 
-Split by role rather than by table: a reader cannot write, and the sealing
-worker's bulk operations are not exposed to the request path. Each Protocol is
+Split by role rather than by table: a reader cannot write. Each Protocol is
 small enough to implement fully, which is what keeps substitutes honest.
 
 `Draft` and `RoundRecord` are plain data carried across the boundary, so the
@@ -138,7 +137,12 @@ class DraftRepository(Protocol):
 
 @runtime_checkable
 class DraftScanner(Protocol):
-    """Bulk read for the sealing worker. Separated from the request path."""
+    """Bulk read over every complete draft in a round.
+
+    Two callers, one contract: the sealing worker's materialisation, and the
+    live standings endpoint (there is no manual lock-in, so during OPEN a
+    draft *is* the only record of a cast vote — see EntryService.metrics_for).
+    """
 
     async def iter_complete(
         self, round_id: UUID, chunk_size: int
@@ -147,6 +151,17 @@ class DraftScanner(Protocol):
         ...
 
     async def count_complete(self, round_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class DraftStore(DraftRepository, DraftScanner, Protocol):
+    """Everything a draft-facing caller needs: edit one, and bulk-scan many.
+
+    Named separately from its two parents because EntryService is the one
+    caller that genuinely needs both halves at once (ordinary draft edits,
+    plus the live-standings scan) — an adapter satisfies this the same way it
+    always has, by implementing every method on one class.
+    """
 
 
 # ── submissions ────────────────────────────────────────────────────────────
@@ -175,5 +190,5 @@ class SubmissionWriter(Protocol):
         mandate_eligible: bool,
         idempotency_key: str | None,
     ) -> CommittedEntry:
-        """Lock in one entry. Idempotent: retrying a key returns the existing row."""
+        """Commit one entry. Idempotent: retrying a key returns the existing row."""
         ...

@@ -21,10 +21,6 @@ class DraftIn(BaseModel):
         return v
 
 
-class LockIn(BaseModel):
-    idempotency_key: str | None = Field(None, max_length=128)
-
-
 class RoundOut(BaseModel):
     round_id: UUID
     cycle_number: int
@@ -40,10 +36,13 @@ class RoundOut(BaseModel):
 
 
 class EntryOut(BaseModel):
-    locked: bool
+    committed: bool
     prediction: str | None = None
     vote: int | None = None
     version: int | None = None
+    updated_at: datetime | None = Field(
+        None, description="Draft only — when it was last edited, for the Mandate cutoff"
+    )
     commit_sequence: int | None = None
     mandate_eligible: bool | None = None
     committed_at: datetime | None = None

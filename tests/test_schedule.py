@@ -1,4 +1,11 @@
-"""Round scheduling — daily overlapping cadence (Q3)."""
+"""Round scheduling.
+
+Q3's original design overlapped rounds by 6 hours (24h to seal, 6 more to
+resolve, so N+1 opens while N is still resolving). The 23.5h/24h timing below
+replaced that with a 30-minute resolution window and a back-to-back handoff
+instead — round N reveals at the exact instant round N+1 opens, with no gap
+and no overlap. The tests below assert *that* property now, not the old one.
+"""
 
 from datetime import UTC, datetime, timedelta
 
@@ -17,27 +24,28 @@ def test_default_offsets_match_the_ruleset():
     assert s.opens_at == ANCHOR
     assert s.mandate_deadline == ANCHOR + timedelta(hours=12)
     assert s.blackout_at == ANCHOR + timedelta(hours=23)
-    assert s.seals_at == ANCHOR + timedelta(hours=24)
-    assert s.reveals_at == ANCHOR + timedelta(hours=30)
+    assert s.seals_at == ANCHOR + timedelta(hours=23, minutes=30)
+    assert s.reveals_at == ANCHOR + timedelta(hours=24)
 
 
 def test_cycles_open_one_day_apart():
     assert schedule_for(5, ANCHOR).opens_at - schedule_for(4, ANCHOR).opens_at == timedelta(days=1)
 
 
-def test_rounds_overlap_by_six_hours():
-    """The defining property of Q3: round N is resolving while N+1 is open."""
+def test_rounds_hand_off_with_no_gap_or_overlap():
+    """Reveal is set to the cadence exactly: round N+1 opens at the same
+    instant round N reveals, neither before it nor after a dead gap."""
     a, b = schedule_for(0, ANCHOR), schedule_for(1, ANCHOR)
-    assert b.opens_at < a.reveals_at
-    assert a.reveals_at - b.opens_at == timedelta(hours=6)
+    assert b.opens_at == a.reveals_at
 
 
-def test_two_rounds_are_live_during_the_overlap():
-    during = ANCHOR + timedelta(hours=27)     # round 0 resolving, round 1 open
-    assert live_cycles(during, ANCHOR) == [0, 1]
+def test_only_the_incoming_round_is_live_at_the_handoff_instant():
+    handoff = schedule_for(0, ANCHOR).reveals_at   # == schedule_for(1, ANCHOR).opens_at
+    assert live_cycles(handoff, ANCHOR) == [1]
+    assert live_cycles(handoff - timedelta(seconds=1), ANCHOR) == [0]
 
 
-def test_one_round_live_outside_the_overlap():
+def test_one_round_live_mid_cycle():
     assert live_cycles(ANCHOR + timedelta(hours=12), ANCHOR) == [0]
 
 
@@ -52,10 +60,10 @@ def test_nothing_live_before_the_anchor():
         (timedelta(0), RoundStatus.OPEN),
         (timedelta(hours=22, minutes=59), RoundStatus.OPEN),
         (timedelta(hours=23), RoundStatus.BLACKOUT),
-        (timedelta(hours=23, minutes=59), RoundStatus.BLACKOUT),
-        (timedelta(hours=24), RoundStatus.SEALING),
-        (timedelta(hours=29, minutes=59), RoundStatus.SEALING),
-        (timedelta(hours=30), RoundStatus.REVEALED),
+        (timedelta(hours=23, minutes=29), RoundStatus.BLACKOUT),
+        (timedelta(hours=23, minutes=30), RoundStatus.SEALING),
+        (timedelta(hours=23, minutes=59), RoundStatus.SEALING),
+        (timedelta(hours=24), RoundStatus.REVEALED),
     ],
 )
 def test_status_at_boundaries(offset, expected):
@@ -104,8 +112,10 @@ def test_phases_are_always_strictly_ordered(cycle):
     assert s.opens_at < s.mandate_deadline < s.blackout_at < s.seals_at < s.reveals_at
 
 
-@given(st.integers(min_value=0, max_value=1000), st.integers(min_value=0, max_value=29))
+@given(st.integers(min_value=0, max_value=1000), st.integers(min_value=0, max_value=23))
 def test_status_at_agrees_with_liveness(cycle, hours):
+    """Bounded to hour 23: reveal lands at hour 24 exactly, with no overlap
+    for a next cycle to still be counted through — see the handoff tests."""
     s = schedule_for(cycle, ANCHOR)
     now = s.opens_at + timedelta(hours=hours)
     assert s.status_at(now) is not RoundStatus.REVEALED

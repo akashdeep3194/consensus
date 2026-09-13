@@ -26,6 +26,7 @@ from ports.repositories import (
     Draft,
     DraftRepository,
     DraftScanner,
+    DraftStore,
     RoundClosed,
     RoundNotFound,
     RoundReader,
@@ -105,6 +106,7 @@ def test_adapters_satisfy_their_protocols(repos):
     rounds, drafts, submissions = repos
     assert isinstance(rounds, RoundReader) and isinstance(rounds, RoundWriter)
     assert isinstance(drafts, DraftRepository) and isinstance(drafts, DraftScanner)
+    assert isinstance(drafts, DraftStore), "EntryService depends on the combined protocol"
     assert isinstance(submissions, SubmissionReader)
     assert isinstance(submissions, SubmissionWriter)
 

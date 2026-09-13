@@ -31,15 +31,6 @@ const entry = createEntry({
     saveTimer = setTimeout(saveDraft, SAVE_DEBOUNCE_MS);
   },
   onGoRoom: () => setView("room"),
-  async onLock() {
-    clearTimeout(saveTimer);
-    await saveDraft();
-    try {
-      state.entry = await api.lock(state.round.round_id, `${state.round.round_id}:${state.handle}`);
-      hideError();
-      entry.render(state.round, state.entry, { force: true });
-    } catch (err) { showError(err.message); }
-  },
 });
 
 // ── routing ───────────────────────────────────────────────────────────────
@@ -86,7 +77,7 @@ on($("advance"), "click", async () => {
 
 // ── data ──────────────────────────────────────────────────────────────────
 async function saveDraft() {
-  if (!state.round || state.entry?.locked || !state.draft) return;
+  if (!state.round || state.entry?.committed || !state.draft) return;
   const { prediction, vote } = state.draft;
   if (prediction === null && vote === null) return;
   try {
@@ -155,7 +146,20 @@ const hideError = () => show($("err"), false);
 async function boot() {
   const me = await api.me();
   state.handle = me.handle;
-  if (!state.handle) { show($("gate"), true); return; }
+  if (!state.handle) {
+    show($("gate"), true);
+    if (me.dev_enabled) {
+      show($("dev-gate"), true);
+    }
+    if (!me.google_enabled) {
+      const googleBtn = $("google-login-btn");
+      if (googleBtn) {
+        googleBtn.title = "Google OAuth is not configured on this server.";
+      }
+    }
+    return;
+  }
+
 
   show($("gate"), false);
   show($("game"), true);

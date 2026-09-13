@@ -10,11 +10,14 @@ from adapters.memory.repositories import (
     InMemoryRoundRepository,
     InMemorySubmissionRepository,
 )
+from adapters.memory.user_repository import InMemoryUserRepository
 from ports.repositories import RoundClosed
 
 __all__ = [
     "InMemoryDraftRepository",
     "InMemoryRoundRepository",
     "InMemorySubmissionRepository",
+    "InMemoryUserRepository",
     "RoundClosed",
 ]
+

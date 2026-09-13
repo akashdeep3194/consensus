@@ -18,7 +18,6 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8099"
 RUN = str(int(time.time()))[-6:]
 PLAYERS = 40
 BLOC = 12          # players coordinating on digit 7
-MANUAL_LOCKS = 25  # the rest are left as drafts, to be auto-committed at seal
 
 
 def client():
@@ -56,7 +55,7 @@ def main():
     for i in range(PLAYERS):
         op = client()
         handle = f"p{RUN}_{i:02d}"
-        call(op, "POST", f"/api/session?handle={handle}")
+        call(op, "POST", "/api/session", {"handle": handle})
         vote = 7 if i < BLOC else random.randrange(10)
         slate = random.sample(range(10), 3)
         if i % 3 == 0:                       # some chase the visible leader
@@ -79,18 +78,8 @@ def main():
     print(f"  first write accepted  -> v{first.get('version')}")
     print(f"  stale write rejected  -> {stale.get('__error__')} {stale.get('detail', '')[:44]}")
 
-    print("\n-- lock-ins --")
-    for op, handle, _, _ in players[:MANUAL_LOCKS]:
-        r = call(op, "POST", f"/api/rounds/{rid}/lock", {"idempotency_key": f"k-{RUN}-{handle}"})
-        if "__error__" in r:
-            die(f"{handle} lock: {r}")
-    print(f"  {MANUAL_LOCKS} locked in manually, {PLAYERS - MANUAL_LOCKS} left as drafts")
-
-    op, handle = players[0][0], players[0][1]
-    a = call(op, "POST", f"/api/rounds/{rid}/lock", {"idempotency_key": f"k-{RUN}-{handle}"})
-    b = call(op, "POST", f"/api/rounds/{rid}/lock", {"idempotency_key": f"k-{RUN}-{handle}"})
-    print(f"  idempotent retry -> same sequence #{a['commit_sequence']}: "
-          f"{a['commit_sequence'] == b['commit_sequence']}")
+    print("\n-- no lock-in step --")
+    print(f"  all {PLAYERS} stay as drafts; nothing commits until the round seals")
 
     st = call(client(), "GET", f"/api/rounds/{rid}/standings")
     print("\n-- standings (live) --")
@@ -105,6 +94,14 @@ def main():
     print(f"  total submissions     : {seal['total_submissions']}")
     print(f"  WINNING NUMBER        : {seal['winning_number']}")
     print(f"  commitment root       : {seal['commitment_root'][:40]}...")
+
+    # Sealing is idempotent (§5, F5): with no manual lock-in, this is the only
+    # commit path there is, so calling it again must not re-commit anyone or
+    # move the root.
+    reseal = call(client(), "POST", f"/api/admin/rounds/{rid}/seal")
+    print(f"  reseal is idempotent  : "
+          f"root unchanged={reseal['commitment_root'] == seal['commitment_root']}, "
+          f"auto_committed second time={reseal['auto_committed']}")
 
     dark = call(client(), "GET", f"/api/rounds/{rid}/standings")
     print(f"  standings after seal  : visible={dark.get('visible')} ({dark.get('reason')})")

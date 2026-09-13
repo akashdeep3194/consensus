@@ -18,13 +18,12 @@ async function request(method, path, body) {
 
 export const api = {
   me:             () => request("GET", "/api/me"),
-  signIn:     (handle) => request("POST", `/api/session?handle=${encodeURIComponent(handle)}`),
+  signIn:     (handle) => request("POST", "/api/session", { handle }),
   signOut:        () => request("DELETE", "/api/session"),
   currentRound:   () => request("GET", "/api/rounds/current"),
   latestRevealed: () => request("GET", "/api/rounds/latest-revealed"),
   entry:      (round) => request("GET", `/api/rounds/${round}/entry`),
   saveDraft: (round, draft) => request("PUT", `/api/rounds/${round}/draft`, draft),
-  lock:  (round, key) => request("POST", `/api/rounds/${round}/lock`, { idempotency_key: key }),
   standings:  (round) => request("GET", `/api/rounds/${round}/standings`),
   result:     (round) => request("GET", `/api/rounds/${round}/result`),
   myResult:   (round) => request("GET", `/api/rounds/${round}/my-result`),

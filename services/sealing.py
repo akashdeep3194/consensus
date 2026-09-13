@@ -4,12 +4,17 @@ F5: atomicity and restartability are reconciled by making the **status
 transition** the atomic moment, not the data movement.
 
     OPEN/BLACKOUT -> SEALING   one small transaction; establishes the cutoff
-    ... chunked, idempotent materialisation of remaining drafts ...
+    ... chunked, idempotent materialisation of every complete draft ...
     reconcile counts
     SEALING -> SEALED          only once materialisation is verified complete
 
 A crash at any point is safe: the cutoff already happened, and every chunk is
 idempotent, so a restart resumes rather than duplicating.
+
+There is no manual lock-in (§6): a draft is freely editable for as long as the
+round accepts entries, and materialisation here is the one and only place a
+draft becomes a committed entry — applied uniformly to whatever every player's
+draft holds at that instant.
 """
 
 import logging
@@ -52,7 +57,7 @@ class SealingService:
             record = await self._advance_to(record, RoundStatus.SEALING)
 
         if record.status is RoundStatus.SEALING:
-            committed = await self._materialise(round_id)
+            committed = await self._materialise(round_id, record)
         else:
             committed = 0
 
@@ -79,8 +84,10 @@ class SealingService:
             record = await self._rounds.transition(record.round_id, record.status, nxt)
         return record
 
-    async def _materialise(self, round_id: UUID) -> int:
-        """Auto-commit every complete remaining draft, in chunks.
+    async def _materialise(self, round_id: UUID, record) -> int:
+        """Commit every complete remaining draft, in chunks. This is the only
+        way a draft ever becomes an entry (§6): there is no manual lock-in, so
+        every player crosses DRAFT -> COMMITTED at the same instant, right here.
 
         Drafts are scanned in the canonical (updated_at, user_id) order so the
         commit_sequence values an auditor derives match ours (F4).
@@ -94,7 +101,12 @@ class SealingService:
                         draft.user_id,
                         draft.prediction,
                         draft.vote,
-                        mandate_eligible=False,      # auto-commits never score Board B
+                        # Ruleset §3.2: Board B counts only entries whose slate
+                        # was already settled before T+12h. With no manual
+                        # lock-in, "settled" means "not edited since" — the
+                        # draft's own last-write timestamp, not the moment it
+                        # happens to be swept up here.
+                        mandate_eligible=record.schedule.mandate_eligible(draft.updated_at),
                         idempotency_key=f"seal:{round_id}:{draft.user_id}",
                     )
                     committed += 1

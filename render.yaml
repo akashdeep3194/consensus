@@ -12,6 +12,12 @@ services:
           property: connectionString
       - key: DEV_LOGIN
         value: "0"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
 
 databases:
   - name: consensus-db
