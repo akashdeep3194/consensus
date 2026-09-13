@@ -151,6 +151,9 @@ class PostgresRoundRepository:
             )
         return [_round(r) for r in rows]
 
+    async def highest_cycle(self) -> int:
+        return await self._pool.fetchval("SELECT coalesce(max(cycle_number),-1) FROM rounds")
+
     async def transition(
         self, round_id: UUID, expected: RoundStatus, to: RoundStatus
     ) -> RoundRecord:

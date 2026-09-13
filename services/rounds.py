@@ -98,7 +98,9 @@ class RoundService:
         cycle = max(0, int(elapsed // self._timing.cadence))
         for c in {max(0, cycle - 1), cycle}:
             await self.ensure_scheduled(c)
-        return await self.advance_due()
+        moved = await self.advance_due()
+        await self.ensure_open_round()
+        return moved
 
     async def current(self) -> RoundRecord | None:
         """The round accepting entries right now — the newest that is not sealed."""
@@ -108,6 +110,47 @@ class RoundService:
 
     async def live(self) -> list[RoundRecord]:
         return list(await self._rounds.live())
+
+    async def ensure_open_round(self) -> RoundRecord | None:
+        """Guarantee some round is OPEN or BLACKOUT, minting the next cycle
+        if nothing is. Returns the round it opened, or None when something
+        was already live (the normal case: two rounds are live at once by
+        design — domain.schedule's daily overlap — so this is usually a
+        no-op).
+
+        The self-healing half of ensure_current: a stale anchor, a voided
+        round with nothing behind it, or any other gap that leaves nothing
+        live is closed here rather than requiring an operator to notice and
+        force a round open by hand. Deliberately anchor-independent — it
+        picks highest_cycle()+1, not anything derived from (now - anchor),
+        since anchor-derived arithmetic is exactly what got this wrong in
+        the first place (services/anchor.py).
+
+        Safe under concurrent callers: losing the create() race (unique
+        cycle_number) or the transition() race (compare-and-set) both mean
+        another caller already achieved the one thing this exists to
+        guarantee, so both are caught rather than raised.
+        """
+        live = await self._rounds.live()
+        if any(r.status in (RoundStatus.OPEN, RoundStatus.BLACKOUT) for r in live):
+            return None
+
+        highest = await self._rounds.highest_cycle()
+        try:
+            record = await self.ensure_scheduled(highest + 1)
+        except ValueError:
+            record = await self._rounds.by_cycle(highest + 1)
+            if record is None:
+                raise
+
+        if record.status is RoundStatus.SCHEDULED:
+            try:
+                record = await self._rounds.transition(
+                    record.round_id, RoundStatus.SCHEDULED, RoundStatus.OPEN
+                )
+            except ConcurrentModification:
+                record = await self._rounds.get(record.round_id)
+        return record
 
     async def history(
         self, before_cycle: int | None = None, limit: int = 20

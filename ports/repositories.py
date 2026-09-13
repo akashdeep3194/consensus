@@ -96,6 +96,16 @@ class RoundReader(Protocol):
         """
         ...
 
+    async def highest_cycle(self) -> int:
+        """Greatest cycle_number in the table, -1 if it is empty.
+
+        Anchor-independent by design — the reliable way to pick "the next
+        cycle to open" when self-healing (services.rounds.RoundService.
+        ensure_open_round), since anchor-derived arithmetic is exactly what a
+        stale anchor got wrong (services/anchor.py).
+        """
+        ...
+
 
 @runtime_checkable
 class RoundWriter(Protocol):

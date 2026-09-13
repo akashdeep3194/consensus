@@ -205,6 +205,20 @@ def test_history_empty_when_nothing_revealed(repos):
     assert run(rounds.history(None, 10)) == []
 
 
+# ── highest_cycle — anchor-independent "what's the next cycle" ──────
+def test_highest_cycle_is_minus_one_when_empty(repos):
+    rounds, _, _ = repos
+    assert run(rounds.highest_cycle()) == -1
+
+
+def test_highest_cycle_tracks_the_greatest_cycle_number(repos):
+    rounds, _, _ = repos
+    make_round(rounds, cycle=0)
+    make_round(rounds, status=RoundStatus.REVEALED, cycle=5, winning_number="123")
+    make_round(rounds, cycle=2)
+    assert run(rounds.highest_cycle()) == 5
+
+
 # ── drafts ──────────────────────────────────────────────────────────
 def test_draft_create_then_update_bumps_version(repos):
     rounds, drafts, _ = repos

@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     applied = await apply_migrations(pool)
     if applied:
         log.info("applied migrations: %s", ", ".join(applied))
-    container = Container.build(pool)
+    container = await Container.build(pool)
     await _ensure_current_round()
 
     # The background scheduler (services.scheduler): sleeps exactly until the
@@ -345,35 +345,21 @@ async def force_seal(round_id: UUID):
     result = await C().sealing.finalize(round_id) or await C().sealing.resolve_round(
         round_id, persist=False
     )
-    next_round = await _open_next_round()
+    # Sealing early leaves a gap the schedule would not fill until the next
+    # cycle is due, so a force-seal opens the successor immediately — the
+    # same self-healing ensure_current() already runs on every request and
+    # every scheduler sweep (services.rounds.RoundService.ensure_open_round).
+    # In normal operation the daily overlap (Q3) means a round is always
+    # live and this is a no-op.
+    next_round = await C().rounds.ensure_open_round()
     return {
         "round_id": str(round_id),
-        "next_round_id": str(next_round) if next_round else None,
+        "next_round_id": str(next_round.round_id) if next_round else None,
         "auto_committed": report.drafts_committed,
         "total_submissions": report.total_submissions,
         "winning_number": "".join(str(d) for d in result.winning_number),
         "commitment_root": result.commitment_root,
     }
-
-
-async def _open_next_round() -> UUID | None:
-    """Start the following cycle immediately.
-
-    Sealing early leaves a gap the schedule would not fill until the next cycle
-    is due, so the operator seal opens the successor. In normal operation the
-    daily overlap (Q3) means a round is always live and this is a no-op.
-    """
-    cx = C()
-    existing = await cx.rounds.live()
-    if any(r.status in (RoundStatus.OPEN, RoundStatus.BLACKOUT) for r in existing):
-        return None
-    highest = await cx.pool.fetchval("SELECT coalesce(max(cycle_number),-1) FROM rounds")
-    record = await cx.rounds.ensure_scheduled(highest + 1)
-    if record.status is RoundStatus.SCHEDULED:
-        await cx.rounds._rounds.transition(  # noqa: SLF001
-            record.round_id, RoundStatus.SCHEDULED, RoundStatus.OPEN
-        )
-    return record.round_id
 
 
 @app.get("/api/leaderboard")

@@ -68,6 +68,9 @@ class InMemoryRoundRepository:
             revealed = [r for r in revealed if r.cycle_number < before_cycle]
         return revealed[:limit]
 
+    async def highest_cycle(self) -> int:
+        return max((r.cycle_number for r in self._rounds.values()), default=-1)
+
     async def transition(
         self, round_id: UUID, expected: RoundStatus, to: RoundStatus
     ) -> RoundRecord:

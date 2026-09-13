@@ -25,6 +25,7 @@ from adapters.postgres import (
 from domain.schedule import DEFAULT_TIMING, RoundTiming
 from ports.auth import SessionSigner, UserRepository, user_id_for
 from ports.clock import SystemClock
+from services.anchor import resolve_anchor
 from services.auth import AuthService
 from services.entries import EntryService
 from services.results import record_results
@@ -37,12 +38,12 @@ USER_NAMESPACE = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 __all__ = ["Container", "USER_NAMESPACE", "user_id_for"]
 
 
-def _anchor() -> datetime:
+def _anchor_seed() -> datetime | None:
+    """ROUND_ANCHOR, if set, is an optional one-time seed for a database's
+    very first boot — not a value that must be set correctly on every
+    environment forever. See services/anchor.py."""
     raw = os.environ.get("ROUND_ANCHOR")
-    if raw:
-        return datetime.fromisoformat(raw).astimezone(UTC)
-    # default: midnight UTC today, so cycle numbers are stable across restarts
-    return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    return datetime.fromisoformat(raw).astimezone(UTC) if raw else None
 
 
 def _timing() -> RoundTiming:
@@ -78,9 +79,10 @@ class Container:
     _http_client: httpx.AsyncClient
 
     @classmethod
-    def build(cls, pool: asyncpg.Pool) -> "Container":
+    async def build(cls, pool: asyncpg.Pool) -> "Container":
         clock = SystemClock()
-        anchor, timing = _anchor(), _timing()
+        anchor = await resolve_anchor(pool, seed=_anchor_seed())
+        timing = _timing()
         round_repo = PostgresRoundRepository(pool)
         draft_repo = PostgresDraftRepository(pool)
         sub_repo = PostgresSubmissionRepository(pool)

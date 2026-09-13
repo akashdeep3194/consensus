@@ -13,6 +13,10 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from adapters.postgres import PostgresRoundRepository  # noqa: E402
+from domain.lifecycle import RoundStatus  # noqa: E402
+from tests.conftest import run  # noqa: E402
+
 
 @pytest.fixture(scope="module")
 def client(pg_pool):
@@ -222,3 +226,27 @@ def test_history_lists_revealed_rounds_and_paginates(client):
     else:
         pytest.fail("history pagination never terminated")
     assert page["next_before_cycle"] is None, "must never invite a page with nothing on it"
+
+
+def test_admin_advance_recovers_when_nothing_is_live(client, pg_pool):
+    """Reproduces the actual production incident directly: a stale anchor
+    left nothing live in production with no way back except a manual admin
+    call. Force every currently-live round into VOIDED here (legal from any
+    pre-REVEALED status) to recreate that same "nothing live" precondition,
+    then confirm the *passive* path — POST /api/admin/advance, not
+    force_seal — is what brings a live round back on its own.
+    """
+    rounds = PostgresRoundRepository(pg_pool)
+    stuck = run(rounds.live())
+    for r in stuck:
+        run(rounds.transition(r.round_id, r.status, RoundStatus.VOIDED))
+    # Checked at the repository level, not via GET /api/rounds — that
+    # endpoint's own ensure_current() would self-heal on this very call and
+    # never observably return [] once the fix is in place.
+    assert run(rounds.live()) == [], "the incident's exact symptom: nothing live"
+
+    client.post("/api/admin/advance")
+
+    current = client.get("/api/rounds/current")
+    assert current.status_code == 200
+    assert current.json()["status"] in ("open", "blackout")
