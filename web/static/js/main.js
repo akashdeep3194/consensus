@@ -79,7 +79,13 @@ on($("advance"), "click", async () => {
 async function saveDraft() {
   if (!state.round || state.entry?.committed || !state.draft) return;
   const { prediction, vote } = state.draft;
-  if (prediction === null && vote === null) return;
+  // Skip the round trip only when there's truly nothing to do: the draft is
+  // blank AND the server's copy is already blank too. A blank draft against
+  // a non-blank saved entry is a real clear (backspacing a completed slate
+  // back down before ever voting) and must still be sent, or the stale
+  // server-side entry can resurface on reload or the next round transition.
+  const savedIsBlank = !state.entry?.prediction && state.entry?.vote == null;
+  if (prediction === null && vote === null && savedIsBlank) return;
   try {
     const saved = await api.saveDraft(state.round.round_id, { prediction, vote, version: state.version });
     state.version = saved.version;

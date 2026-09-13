@@ -116,8 +116,13 @@
    `minmax(0, ...)` (not bare 1fr) is what lets the tracks actually shrink to
    fit a narrow screen instead of forcing the page wider than the viewport. */
 .keypad {
+  /* width:100% first: .card is a column flex, so an auto-margin alone (with
+     no explicit width) is read as "shrink to content, then push with the
+     leftover space" — it collapses the grid to its minimum content size
+     instead of centering a 320px pad. Giving it a width to fill before the
+     max-width caps it is what leaves auto margins something to center. */
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s2); max-width: 320px;
+  gap: var(--s2); width: 100%; max-width: 320px; margin-inline: auto;
 }
 .key {
   aspect-ratio: 1.4;
@@ -127,13 +132,17 @@
   transition: background .13s, border-color .13s, color .13s, opacity .13s;
 }
 .keypad--lg .key { font-size: 26px; font-weight: var(--w-light); }
-.key:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+.key:hover:not(.is-blocked) { border-color: var(--accent); color: var(--ink); }
 .key.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: var(--w-mid); }
 /* A digit already on the slate cannot be picked again, so the slate has no
    "digits must be distinct" error to show. */
 .key.is-used { opacity: .22; background: none; }
-.key:disabled { cursor: not-allowed; }
-.key:disabled:not(.is-used):not(.is-on) { opacity: .4; }
+/* Not the native `disabled` attribute — see the comment atop keypad.js for
+   why: mutating it on every render risks a mobile browser dropping the very
+   next tap mid-gesture. This is purely visual; the click handler itself
+   checks the same blocked state. */
+.key.is-blocked { cursor: not-allowed; }
+.key.is-blocked:not(.is-used):not(.is-on) { opacity: .4; }
 /* The blank corner that centres "0" the way a phone's own pad does. */
 .key--spacer { background: none; border: none; }
 /* The clear/backspace key: same size and grid cell as a digit, styled as a
@@ -142,8 +151,8 @@
   font-family: var(--ui); font-size: var(--t-lead); color: var(--ink-3);
   background: none; border: 1px solid var(--line);
 }
-.key--back:hover:not(:disabled) { color: var(--claret); border-color: var(--claret-line); background: var(--claret-wash); }
-.key--back:disabled { opacity: .3; cursor: not-allowed; }
+.key--back:hover:not(.is-blocked) { color: var(--claret); border-color: var(--claret-line); background: var(--claret-wash); }
+.key--back.is-blocked { opacity: .3; cursor: not-allowed; }
 
 /* ── Leaders strip ──────────────────────────────────────────────────────── */
 .leaders {

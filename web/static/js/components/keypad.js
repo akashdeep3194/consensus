@@ -4,6 +4,14 @@
 // (there's always a specific "last placed digit" to undo); the vote pad is a
 // single pick with nothing to undo, so its outer corners just stay blank —
 // kept for the same familiar shape, not for a function.
+//
+// Disabled state is tracked as a class + a flag the click handler itself
+// checks, never the native `disabled` attribute. Every digit placement
+// re-renders every key's disabled state, and mutating `disabled` on a button
+// while a touch is still resolving (touchstart -> touchend -> click) is a
+// known way for mobile browsers to silently drop that click entirely — the
+// exact "placed one digit, next tap does nothing" failure this pad cannot
+// afford. Blocking inside the handler sidesteps that risk completely.
 
 const ROWS = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
 
@@ -16,7 +24,11 @@ export function createKeypad(mount, onPick, { onBackspace } = {}) {
     key.className = "key";
     key.textContent = digit;
     key.dataset.digit = digit;
-    key.addEventListener("click", () => onPick(digit));
+    key.dataset.blocked = "false";
+    key.addEventListener("click", () => {
+      if (key.dataset.blocked === "true") return;
+      onPick(digit);
+    });
     mount.appendChild(key);
     keys[digit] = key;
   }
@@ -36,9 +48,13 @@ export function createKeypad(mount, onPick, { onBackspace } = {}) {
     const back = document.createElement("button");
     back.type = "button";
     back.className = "key key--back";
+    back.dataset.blocked = "false";
     back.setAttribute("aria-label", "clear last digit");
     back.textContent = "⌫";
-    back.addEventListener("click", onBackspace);
+    back.addEventListener("click", () => {
+      if (back.dataset.blocked === "true") return;
+      onBackspace();
+    });
     mount.appendChild(back);
     keys.backspaceEl = back;
   } else {
@@ -52,11 +68,19 @@ export function createKeypad(mount, onPick, { onBackspace } = {}) {
     render({ selected = null, used = [], frozen = false, full = false } = {}) {
       keys.forEach((key, digit) => {
         const spent = used.includes(digit);
+        const blocked = frozen || spent || full;
         key.classList.toggle("is-on", digit === selected);
         key.classList.toggle("is-used", spent);
-        key.disabled = frozen || spent || full;
+        key.classList.toggle("is-blocked", blocked);
+        key.dataset.blocked = String(blocked);
+        key.setAttribute("aria-disabled", String(blocked));
       });
-      if (keys.backspaceEl) keys.backspaceEl.disabled = frozen || used.length === 0;
+      if (keys.backspaceEl) {
+        const blocked = frozen || used.length === 0;
+        keys.backspaceEl.classList.toggle("is-blocked", blocked);
+        keys.backspaceEl.dataset.blocked = String(blocked);
+        keys.backspaceEl.setAttribute("aria-disabled", String(blocked));
+      }
     },
   };
 }
