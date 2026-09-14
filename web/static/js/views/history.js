@@ -45,8 +45,8 @@ export function createHistory(getHandle) {
       </div>`;
     }
     return `
-      <p class="note note--quiet">Rounds that got zero votes aren't shown here — there's no
-        result to review from an empty room.</p>
+      <p class="note note--quiet"><span class="term" tabindex="0"
+        data-tip="Rounds that got zero votes aren't shown here. There's no result to review from an empty room.">Missing a round?</span></p>
       <div class="table-wrap"><table>
         <thead><tr><th>Revealed</th><th>Round</th><th>Number</th><th>Your result</th></tr></thead>
         <tbody>${state.rounds.map((r) => `
