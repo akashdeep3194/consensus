@@ -17,11 +17,10 @@ export function rulesHTML() {
         <li><b>Make your guess.</b> Pick three different digits and put them
           in order — 1st, 2nd, and 3rd. This is your prediction of the
           winning number.</li>
-        <li><b>Cast your vote.</b> Pick one digit — the one you want to win.
-          It doesn't have to be one of the three you guessed.</li>
+        <li><b>Cast your vote.</b> Pick one digit — the one you want to win. </li>
       </ol>
       <p>Both save automatically the moment you pick them, and you can
-        change either one as many times as you like — right up until the
+        change both of them as many times as you like — right up until the
         round locks, at the exact same moment for everyone.</p>
 
       <h3>How the winning number is picked</h3>
