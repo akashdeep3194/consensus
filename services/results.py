@@ -32,10 +32,26 @@ async def record_results(pool: asyncpg.Pool, round_id: UUID, result: RoundResult
     second helping of points onto their season.
     """
     async with pool.acquire() as conn, conn.transaction():
-        for p in result.players:
+        # Sorted by user_id: two rounds are deliberately live at once
+        # (services/rounds.py's daily overlap), so two finalize() calls can
+        # genuinely run at the same instant. FOR UPDATE below makes each
+        # player's streak read-then-write atomic against that; locking in a
+        # fixed order across both transactions is what keeps two such calls
+        # sharing players from deadlocking on each other's locks.
+        for p in sorted(result.players, key=lambda p: p.user_id):
             uid = UUID(p.user_id)
+            # Seeded first so FOR UPDATE always has a row to lock — without
+            # this, a player's very first-ever scored round has no season
+            # row yet, and the lock below protects nothing.
+            await conn.execute(
+                """INSERT INTO user_seasons (user_id,total_points,streak,best_streak,
+                       trifectas,boxed,rounds_played)
+                   VALUES ($1,0,0,0,0,0,0)
+                   ON CONFLICT (user_id) DO NOTHING""",
+                uid,
+            )
             streak_before = await conn.fetchval(
-                "SELECT streak FROM user_seasons WHERE user_id=$1", uid
+                "SELECT streak FROM user_seasons WHERE user_id=$1 FOR UPDATE", uid
             ) or 0
             points, streak_after = award(p.tier, streak_before)
             inserted = await conn.fetchval(

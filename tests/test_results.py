@@ -8,6 +8,7 @@ calling record_results twice for the same round must not award anyone points
 twice.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -96,3 +97,41 @@ def test_record_results_is_idempotent_and_never_double_counts(pg_pool):
 
     season = run(pg_pool.fetchrow("SELECT * FROM user_seasons WHERE user_id=$1", user_id))
     assert season["rounds_played"] == 1, "a repeat call must not double-count the season"
+
+
+def test_record_results_serializes_concurrent_streak_updates_for_one_user(pg_pool):
+    """Two rounds are deliberately live at once by design (services/rounds.py's
+    daily overlap), so their finalize() calls can genuinely race. Without a
+    lock on the season row, two concurrent record_results calls scoring the
+    same user's Trifecta in both rounds could each read streak_before=0 and
+    both land on streak=1 — silently losing the second round's higher streak
+    multiplier along with it. FOR UPDATE forces the second call to wait for
+    the first to commit, so the streak always lands at the correct 1 -> 2,
+    never both at 1, regardless of scheduling."""
+    round_a = _make_round(pg_pool, cycle=1)
+    round_b = _make_round(pg_pool, cycle=2)
+    user_id = _make_user(pg_pool)
+
+    def trifecta(round_id):
+        # A single voter for digit 7 makes 7 the unique 1st-place digit;
+        # every other digit ties at zero votes and resolves lowest-first, so
+        # the winning number is exactly (7, 0, 1) — matching this prediction.
+        submission = Submission(
+            round_id=str(round_id), submission_id=str(uuid4()), user_id=str(user_id),
+            prediction=(7, 0, 1), vote=7, commit_sequence=1, mandate_eligible=True,
+        )
+        return resolve(str(round_id), [submission])
+
+    async def score_both():
+        await asyncio.gather(
+            record_results(pg_pool, round_a, trifecta(round_a)),
+            record_results(pg_pool, round_b, trifecta(round_b)),
+        )
+
+    run(score_both())
+
+    season = run(pg_pool.fetchrow("SELECT * FROM user_seasons WHERE user_id=$1", user_id))
+    assert season["streak"] == 2
+    assert season["best_streak"] == 2
+    assert season["trifectas"] == 2
+    assert season["total_points"] == 225, "100 for the first Trifecta, 125 (1.25x) for the second"
