@@ -40,6 +40,13 @@
 
 .who { display: flex; align-items: center; gap: var(--s3); font-size: var(--t-fine); color: var(--ink-2); }
 .who__handle { color: var(--ink); letter-spacing: .04em; }
+.who__points {
+  font-family: var(--ui); font-size: var(--t-fine); font-weight: var(--w-mid);
+  color: var(--accent); background: var(--accent-wash); border: 1px solid var(--accent-line);
+  border-radius: var(--radius); padding: 4px var(--s3); cursor: pointer;
+  transition: filter .13s;
+}
+.who__points:hover { filter: brightness(1.1); }
 
 /* One hairline for the whole round, with the mandate deadline marked to
    scale — the one instant a player can miss by being slow. */

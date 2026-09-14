@@ -375,6 +375,46 @@ async def leaderboard(limit: int = 20):
     return [dict(r) for r in rows]
 
 
+@app.get("/api/me/season")
+async def my_season(user_id: UUID = Depends(current_user)):  # noqa: B008
+    """The running total behind the topbar's points chip and its popup.
+
+    A player who has never been scored yet has no user_seasons row at all —
+    that is a real zero, not a missing record, so it returns the zeroed
+    shape rather than 404ing.
+    """
+    row = await C().pool.fetchrow(
+        """SELECT total_points, streak, best_streak, trifectas, boxed, rounds_played,
+                  (SELECT count(*) + 1 FROM user_seasons
+                     WHERE total_points > s.total_points) AS rank
+           FROM user_seasons s WHERE user_id = $1""",
+        user_id,
+    )
+    if row is None:
+        return {
+            "total_points": 0, "streak": 0, "best_streak": 0,
+            "trifectas": 0, "boxed": 0, "rounds_played": 0, "rank": None,
+        }
+    return dict(row)
+
+
+@app.get("/api/me/results")
+async def my_results(round_ids: str, user_id: UUID = Depends(current_user)):  # noqa: B008
+    """Which of these rounds the caller has a scored result for, and what it
+    was — the batched lookup the History list uses to show an outcome per
+    row without one request per round. A round missing from the response is
+    simply one the caller never entered, not an error.
+    """
+    # cap matches /api/rounds/history's own page-size ceiling
+    ids = [UUID(r) for r in round_ids.split(",") if r][:100]
+    rows = await C().pool.fetch(
+        """SELECT round_id, tier, points FROM round_results
+           WHERE user_id = $1 AND round_id = ANY($2::uuid[])""",
+        user_id, ids,
+    )
+    return [dict(r) for r in rows]
+
+
 @app.get("/api/health")
 async def health():
     await C().pool.fetchval("SELECT 1")

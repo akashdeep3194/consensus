@@ -9,6 +9,7 @@ import { createEntry } from "./views/entry.js";
 import { createRoom } from "./views/room.js";
 import { createResult } from "./views/result.js";
 import { createHistory } from "./views/history.js";
+import { createStats } from "./views/stats.js";
 
 const POLL_MS = 4000;
 const TICK_MS = 200;
@@ -26,6 +27,10 @@ const topbar = createTopbar();
 const room = createRoom();
 const result = createResult();
 const history = createHistory(() => state.handle);
+// Unlike the views above, its chip is injected into #who by boot() itself
+// (only once signed in) rather than existing in index.html from page load,
+// so it can't bind to that element until boot() has actually created it.
+let stats = null;
 const entry = createEntry({
   onDraftChange(draft) {
     state.draft = draft;
@@ -125,8 +130,12 @@ async function refresh() {
     topbar.render(round);
     await loadResult(round);
 
-    // The number landing is the one moment worth interrupting for.
-    if (firstReveal) setView("result");
+    // The number landing is the one moment worth interrupting for — and the
+    // one moment the season total actually might have just moved.
+    if (firstReveal) {
+      setView("result");
+      stats?.refresh();
+    }
   } catch (err) { showError(err.message); }
 }
 
@@ -198,8 +207,11 @@ async function boot() {
   show($("gate"), false);
   show($("game"), true);
   $("who").innerHTML = `<span class="who__handle">${esc(state.handle)}</span>
+    <button class="who__points" id="myPoints" type="button">— pts</button>
     <button class="btn btn--ghost" id="signout" type="button">Sign out</button>`;
   on($("signout"), "click", async () => { await api.signOut(); location.reload(); });
+  stats = createStats();
+  stats.refresh();
 
   setView(viewFromHash(), { push: false });
   await refresh();

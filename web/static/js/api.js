@@ -35,4 +35,6 @@ export const api = {
     const qs = q.toString();
     return request("GET", `/api/rounds/history${qs ? `?${qs}` : ""}`);
   },
+  mySeason:  () => request("GET", "/api/me/season"),
+  myResults: (roundIds) => request("GET", `/api/me/results?round_ids=${roundIds.join(",")}`),
 };

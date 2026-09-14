@@ -33,6 +33,7 @@ const scorecard = (mine) => !mine ? "" : `
     ${stat("Your guess", mine.prediction.split("").join(" "))}
     ${stat("Outcome", mine.tier, true)}
     ${stat("Points", `+${mine.points}`)}
+    ${stat("Streak", mine.streak > 1 ? `${mine.streak} in a row` : "—")}
     ${stat("Your vote", `${mine.vote} — finished ${ordinal(mine.vote_finished)}`)}
     ${stat("Guess commanded", pct(mine.vote_share))}
     ${stat("Mandate rank", mine.mandate_rank ? `#${mine.mandate_rank}` : "—")}

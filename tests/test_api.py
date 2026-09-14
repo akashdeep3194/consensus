@@ -250,3 +250,38 @@ def test_admin_advance_recovers_when_nothing_is_live(client, pg_pool):
     current = client.get("/api/rounds/current")
     assert current.status_code == 200
     assert current.json()["status"] in ("open", "blackout")
+
+
+def test_my_season_is_zeroed_before_any_score(client):
+    """A player who has never been scored has no user_seasons row at all —
+    that's a real zero, not a missing record, so this must not 404."""
+    who = sign_in(client, handle())
+    season = client.get("/api/me/season", **who).json()
+    assert season == {
+        "total_points": 0, "streak": 0, "best_streak": 0,
+        "trifectas": 0, "boxed": 0, "rounds_played": 0, "rank": None,
+    }
+
+
+def test_my_season_and_results_reflect_a_scored_round(client):
+    who = sign_in(client, handle())
+    rid = client.get("/api/rounds/current").json()["round_id"]
+    client.put(f"/api/rounds/{rid}/draft", json={"prediction": "715", "vote": 7}, **who)
+    sealed = client.post(f"/api/admin/rounds/{rid}/seal").json()
+    assert sealed["winning_number"]
+
+    season = client.get("/api/me/season", **who).json()
+    assert season["rounds_played"] == 1
+    assert season["rank"] is not None
+
+    results = client.get(f"/api/me/results?round_ids={rid}", **who).json()
+    assert len(results) == 1
+    assert results[0]["round_id"] == rid
+    assert results[0]["points"] == season["total_points"], "their only round so far"
+
+    # A round sealing just opened a successor — this account never entered
+    # it, so it must not show up in the batched lookup.
+    successor = client.get("/api/rounds/current").json()["round_id"]
+    if successor != rid:
+        empty = client.get(f"/api/me/results?round_ids={successor}", **who).json()
+        assert empty == []

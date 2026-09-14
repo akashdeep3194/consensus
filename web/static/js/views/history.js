@@ -16,6 +16,20 @@ export function createHistory(getHandle) {
   const body = $("historyBody");
   const state = { rounds: [], nextBeforeCycle: null, loaded: false };
 
+  /** Attaches each round's own tier/points, one batched request per page
+   * rather than one per row — a round missing from the response is simply
+   * one the viewer never entered, rendered as "—", not an error. */
+  async function attachMyResults(rounds) {
+    if (rounds.length === 0) return;
+    const mine = await api.myResults(rounds.map((r) => r.round_id));
+    const byRound = new Map(mine.map((m) => [m.round_id, m]));
+    for (const r of rounds) {
+      const m = byRound.get(r.round_id);
+      r.myTier = m?.tier ?? null;
+      r.myPoints = m?.points ?? null;
+    }
+  }
+
   function listHtml() {
     if (state.rounds.length === 0) {
       return `<div class="blind">
@@ -25,12 +39,13 @@ export function createHistory(getHandle) {
     }
     return `
       <div class="table-wrap"><table>
-        <thead><tr><th>Revealed</th><th>Round</th><th>Number</th></tr></thead>
+        <thead><tr><th>Revealed</th><th>Round</th><th>Number</th><th>Your result</th></tr></thead>
         <tbody>${state.rounds.map((r) => `
           <tr class="history-row" data-round="${r.round_id}" style="cursor:pointer">
             <td>${esc(dateTime(r.reveals_at))}</td>
             <td>#${r.cycle_number}</td>
             <td class="is-name">${esc(r.winning_number)}</td>
+            <td>${r.myTier ? `${esc(r.myTier)} · +${r.myPoints}` : "—"}</td>
           </tr>`).join("")}
         </tbody>
       </table></div>
@@ -68,6 +83,7 @@ export function createHistory(getHandle) {
 
   async function loadMore() {
     const page = await api.history({ beforeCycle: state.nextBeforeCycle });
+    await attachMyResults(page.rounds);
     state.rounds = state.rounds.concat(page.rounds);
     state.nextBeforeCycle = page.next_before_cycle;
     renderList();
@@ -87,6 +103,7 @@ export function createHistory(getHandle) {
       if (state.loaded) return;
       state.loaded = true;
       const page = await api.history();
+      await attachMyResults(page.rounds);
       state.rounds = page.rounds;
       state.nextBeforeCycle = page.next_before_cycle;
       renderList();

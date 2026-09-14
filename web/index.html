@@ -39,6 +39,19 @@
   </div>
 </header>
 
+<!-- my season — reachable from every tab via the topbar points chip, so it
+     lives at the top level rather than inside any one view -->
+<div class="modal-backdrop" id="statsBackdrop" hidden></div>
+<div class="card card--popup" id="statsPopup" hidden>
+  <header class="step__head">
+    <h2 class="step__title step__title--sm">My season</h2>
+  </header>
+  <div class="scorecard" id="statsBody"></div>
+  <div class="step__foot">
+    <button class="btn btn--ghost" id="statsClose" type="button">Close</button>
+  </div>
+</div>
+
 <!-- sign in -->
 <main class="shell stage" id="gate" hidden>
   <section class="panel card">
