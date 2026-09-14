@@ -14,7 +14,7 @@ import { createStats } from "./views/stats.js";
 const POLL_MS = 4000;
 const TICK_MS = 200;
 const SAVE_DEBOUNCE_MS = 450;
-const VIEWS = ["play", "room", "result", "history"];
+const VIEWS = ["play", "room", "result", "history", "rules"];
 const RESOLVED = new Set(["sealed", "resolving", "revealed"]);
 
 const state = {

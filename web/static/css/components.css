@@ -55,6 +55,30 @@
 .progress__gate { position: absolute; top: -4px; height: 10px; width: 1px; background: var(--ink-3); }
 .progress__gate.is-passed { opacity: .3; }
 
+/* ── Tooltip ────────────────────────────────────────────────────────────── */
+/* Pure CSS, no JS, no library: any element carrying data-tip gets it on
+   hover and on focus-visible. Deliberately not a plain :focus — a real
+   mouse click already focuses a <button> in Chrome/Firefox, so a tab's own
+   tooltip would otherwise stay stuck open over the view it just switched
+   to, until focus moved elsewhere. :focus-visible skips exactly that case
+   while still applying to a keyboard tab-to or a touch tap. .term is the
+   extra visual cue for an inline mention of a term in running prose;
+   something already self-evidently interactive (a tab) just takes
+   data-tip on its own. */
+[data-tip] { position: relative; }
+[data-tip]:hover::after, [data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  width: max-content; max-width: 240px;
+  background: var(--ink); color: var(--ground);
+  font-family: var(--ui); font-size: var(--t-micro); font-weight: var(--w-book);
+  text-transform: none; letter-spacing: normal; line-height: 1.4;
+  padding: var(--s2) var(--s3); border-radius: var(--radius);
+  box-shadow: var(--shadow); z-index: 50; pointer-events: none;
+}
+.term { border-bottom: 1px dotted var(--ink-3); cursor: help; }
+
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: var(--s5); padding-block: var(--s4) 0; }
 .tab {
@@ -403,6 +427,22 @@ td b { color: var(--ink); font-weight: var(--w-mid); }
 tr.is-me td { background: var(--accent-wash); color: var(--ink); }
 th:last-child, td:last-child { padding-right: 0; }
 .formula { color: var(--ink-2); letter-spacing: .02em; }
+
+/* ── Rules page ─────────────────────────────────────────────────────────── */
+.rules-copy { display: flex; flex-direction: column; gap: var(--s3); max-width: 640px; }
+.rules-copy h3 {
+  font-family: var(--display); font-weight: var(--w-light); text-transform: uppercase;
+  letter-spacing: var(--track-title); font-size: var(--t-lead); color: var(--ink);
+  margin-top: var(--s3);
+}
+.rules-copy p, .rules-copy li { color: var(--ink-2); line-height: 1.6; }
+.rules-copy ol, .rules-copy ul { display: flex; flex-direction: column; gap: var(--s2); padding-left: var(--s5); }
+.rules-copy b { color: var(--ink); font-weight: var(--w-mid); }
+.rules-copy code {
+  font-family: var(--data); background: var(--sunk); padding: 2px 6px;
+  border-radius: var(--radius); font-size: var(--t-fine); color: var(--ink);
+}
+.rules-divider { border: 0; border-top: 1px solid var(--line); margin-block: var(--s2); }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .foot { border-top: 1px solid var(--line); background: var(--surface); }
