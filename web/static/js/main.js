@@ -153,6 +153,20 @@ async function loadResult(round) {
 const showError = (message) => { $("err").textContent = message; show($("err"), true); };
 const hideError = () => show($("err"), false);
 
+/** The topbar (round #, phase, countdown) needs no session — /api/rounds/current
+ * is public — so a visitor still on the sign-in gate sees it too, not just
+ * "Round —"/"--:--:--" until they've signed in. Errors are swallowed rather
+ * than shown: #err lives inside the signed-in game view, invisible here, and
+ * the next poll just tries again. */
+async function refreshTopbarOnly() {
+  try {
+    const round = await api.currentRound();
+    syncTo(round.server_time);
+    state.round = round;
+    topbar.render(round);
+  } catch { /* transient — next poll retries */ }
+}
+
 // ── boot ──────────────────────────────────────────────────────────────────
 async function boot() {
   const me = await api.me();
@@ -174,6 +188,9 @@ async function boot() {
         googleBtn.title = "Google OAuth is not configured on this server.";
       }
     }
+    await refreshTopbarOnly();
+    setInterval(refreshTopbarOnly, POLL_MS);
+    setInterval(() => topbar.tick(state.round), TICK_MS);
     return;
   }
 
