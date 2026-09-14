@@ -131,3 +131,36 @@ def test_sweep_once_finalize_is_idempotent_once_revealed():
     second = run(sweep_once(container))         # nothing left to do
 
     assert second.finalized == []
+
+
+def test_sweep_once_commits_and_reveals_after_a_long_gap_in_one_call():
+    """The actual bug: a free-tier sleep spanning from BLACKOUT clean past
+    SEALED/REVEALED, then one wake-up sweep. Without the advance_due guard
+    this round reaches REVEALED with its draft silently discarded and no
+    winning number. With the guard, seal() runs for real within this same
+    sweep and the draft becomes a genuine, committed submission."""
+    round_repo = InMemoryRoundRepository()
+    draft_repo = InMemoryDraftRepository(round_repo)
+    sub_repo = InMemorySubmissionRepository(round_repo)
+
+    record = make_round(0, status=RoundStatus.BLACKOUT)
+    run(round_repo.create(record))
+    user_id = uuid4()
+    run(draft_repo.upsert(record.round_id, user_id, "715", 7, None))
+
+    clock = FixedClock(record.schedule.reveals_at + timedelta(hours=6))
+    rounds = RoundService(round_repo, clock, ANCHOR, DEFAULT_TIMING)
+    sealing = SealingService(round_repo, draft_repo, sub_repo, clock)
+    container = _Container(rounds=rounds, sealing=sealing)
+
+    result = run(sweep_once(container))
+
+    final = run(round_repo.get(record.round_id))
+    assert final.status is RoundStatus.REVEALED
+    assert final.winning_number is not None
+    assert record.round_id in result.sealed
+    assert record.round_id in result.finalized
+
+    entry = run(sub_repo.get_for_user(record.round_id, user_id))
+    assert entry is not None, "the draft must be committed by seal(), not silently dropped"
+    assert entry.prediction == "715" and entry.vote == 7

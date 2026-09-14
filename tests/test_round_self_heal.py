@@ -10,7 +10,7 @@ on its own, and the cycle number it picks must come from the table itself
 exactly what caused the incident in the first place.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from adapters.memory import InMemoryRoundRepository
@@ -107,3 +107,43 @@ def test_ensure_current_self_heals_after_everything_is_voided():
     healed = run(service.current())
     assert healed is not None
     assert healed.cycle_number == 1
+
+
+# ── advance_due must never bare-flip through sealing/resolution ─────
+def test_advance_due_walks_only_to_sealing_after_a_big_gap():
+    """A round in BLACKOUT, woken by a clock well past its own REVEALED
+    instant (a long free-tier sleep, one wake-up sweep): advance_due must
+    stop at SEALING and go no further in one call — SEALING -> SEALED may
+    only happen through SealingService.seal(), which does the real work
+    (materialising drafts, setting the commitment root) a bare status flip
+    would silently skip."""
+    round_repo = InMemoryRoundRepository()
+    rec = _round(round_repo, cycle=0, status=RoundStatus.BLACKOUT)
+    clock = FixedClock(rec.schedule.reveals_at + timedelta(days=2))
+    service = _service(round_repo, clock=clock)
+
+    moved = run(service.advance_due())
+
+    record = run(round_repo.get(rec.round_id))
+    assert record.status is RoundStatus.SEALING
+    assert (rec.round_id, RoundStatus.SEALING, RoundStatus.SEALED) not in moved
+
+
+def test_advance_due_does_not_bare_flip_an_already_sealed_round():
+    """A round already durably SEALED (an earlier sweep's seal() succeeded
+    but finalize() never ran) must stay there for sweep_once's finalize() to
+    pick up for real — not get walked on to RESOLVING/REVEALED by
+    advance_due itself, or the winning number is never persisted."""
+    round_repo = InMemoryRoundRepository()
+    rec = _round(round_repo, cycle=0, status=RoundStatus.BLACKOUT)
+    run(round_repo.transition(rec.round_id, RoundStatus.BLACKOUT, RoundStatus.SEALING))
+    run(round_repo.seal_with_root(rec.round_id, "deadbeef"))
+    clock = FixedClock(rec.schedule.reveals_at + timedelta(days=2))
+    service = _service(round_repo, clock=clock)
+
+    moved = run(service.advance_due())
+
+    record = run(round_repo.get(rec.round_id))
+    assert record.status is RoundStatus.SEALED
+    assert record.winning_number is None
+    assert moved == []

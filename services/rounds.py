@@ -187,6 +187,16 @@ class RoundService:
                 # don't run ahead of the clock
                 if self._phase_rank(nxt) > self._phase_rank(target):
                     break
+                if current in (RoundStatus.SEALING, RoundStatus.SEALED):
+                    # SEALING -> SEALED (drafts materialised, commitment root
+                    # set) and SEALED -> RESOLVING (winning number persisted)
+                    # each do real work that only SealingService.seal()/
+                    # .finalize() may perform — never a bare status flip, no
+                    # matter how large the gap since the last sweep. Parking
+                    # here is always safe: sweep_once calls seal()/finalize()
+                    # on every live round, every sweep, regardless of what
+                    # advance_due did this time.
+                    break
                 try:
                     await self._rounds.transition(record.round_id, current, nxt)
                 except ConcurrentModification:
