@@ -193,9 +193,13 @@ def test_result_is_unavailable_before_sealing(client):
 def test_history_lists_revealed_rounds_and_paginates(client):
     """The History tab's backend: newest first, a real result on every row,
     and a cursor that only ever points at an actual further page."""
+    who = sign_in(client, handle())
     revealed = []
     for _ in range(3):
         rid = client.get("/api/rounds/current").json()["round_id"]
+        # A round with zero votes has no real result and is excluded from
+        # history — cast one so each of these three actually qualifies.
+        client.put(f"/api/rounds/{rid}/draft", json={"prediction": "715", "vote": 7}, **who)
         sealed = client.post(f"/api/admin/rounds/{rid}/seal").json()
         assert sealed["winning_number"], "force-seal must finalize, not just seal"
         revealed.append(rid)

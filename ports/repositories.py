@@ -92,7 +92,10 @@ class RoundReader(Protocol):
         `before_cycle` (exclusive) is the keyset-pagination cursor — omit it
         for the first page. A round that reached REVEALED without ever being
         resolved has no result to show and is excluded, the same treatment
-        VOIDED already gets.
+        VOIDED already gets. So is a round nobody voted in at all: with every
+        digit's count at zero, engine.rank.winning_number's tie-break still
+        returns a number (0, 1, 2) — a real value, but not a real result — so
+        a round needs at least one committed vote to qualify.
         """
         ...
 

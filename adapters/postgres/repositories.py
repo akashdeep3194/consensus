@@ -136,7 +136,13 @@ class PostgresRoundRepository:
     async def history(
         self, before_cycle: int | None, limit: int
     ) -> Sequence[RoundRecord]:
-        where = "status='revealed' AND winning_number IS NOT NULL"
+        # A round nobody voted in has no real result — see RoundReader.history's
+        # docstring — so it's excluded here too, before LIMIT ever applies.
+        where = (
+            "status='revealed' AND winning_number IS NOT NULL AND EXISTS "
+            "(SELECT 1 FROM submissions s WHERE s.round_id = rounds.round_id "
+            "AND s.voided_at IS NULL)"
+        )
         if before_cycle is None:
             rows = await self._pool.fetch(
                 f"SELECT {ROUND_COLUMNS} FROM rounds WHERE {where} "

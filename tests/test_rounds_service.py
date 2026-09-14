@@ -31,6 +31,11 @@ def _service_with_revealed_rounds(n: int) -> RoundService:
         )
         run(round_repo.create(rec))
         run(round_repo.record_resolution(rec.round_id, "123"))
+        # history()'s "at least one vote" filter needs one on record — this
+        # suite is about the pagination built on top, not that filter itself
+        # (tests/test_port_conformance.py owns that), so every round here
+        # gets one unconditionally.
+        round_repo.record_vote(rec.round_id)
     return service
 
 

@@ -24,6 +24,14 @@ class InMemoryRoundRepository:
         self._rounds: dict[UUID, RoundRecord] = {}
         self._lock = asyncio.Lock()
         self._now = now or datetime.now(UTC)
+        # Postgres derives "did anyone vote" live, by joining history()'s
+        # query against submissions — there's no equivalent join here, so
+        # InMemorySubmissionRepository (which already holds a reference to
+        # this repo) reports each commit_entry() in directly.
+        self._has_votes: set[UUID] = set()
+
+    def record_vote(self, round_id: UUID) -> None:
+        self._has_votes.add(round_id)
 
     async def create(self, record: RoundRecord) -> None:
         async with self._lock:
@@ -59,7 +67,9 @@ class InMemoryRoundRepository:
             (
                 r
                 for r in self._rounds.values()
-                if r.status is RoundStatus.REVEALED and r.winning_number is not None
+                if r.status is RoundStatus.REVEALED
+                and r.winning_number is not None
+                and r.round_id in self._has_votes
             ),
             key=lambda r: r.cycle_number,
             reverse=True,
@@ -227,6 +237,7 @@ class InMemorySubmissionRepository:
             self._by_user[(round_id, user_id)] = entry.submission_id
             if idempotency_key is not None:
                 self._by_key[(round_id, user_id, idempotency_key)] = entry.submission_id
+            self._rounds.record_vote(round_id)
             return entry
 
     def _round_entries(self, round_id: UUID) -> list[CommittedEntry]:

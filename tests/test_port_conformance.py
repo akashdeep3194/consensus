@@ -106,6 +106,33 @@ def make_round(rounds, status=RoundStatus.OPEN, cycle=1, winning_number=None):
     return rec
 
 
+#: OPEN -> ... -> REVEALED, in order — mirrors domain.lifecycle.PROGRESSION,
+#: kept local so this file doesn't need to import it just for this.
+_TO_REVEALED = (
+    RoundStatus.BLACKOUT, RoundStatus.SEALING, RoundStatus.SEALED,
+    RoundStatus.RESOLVING, RoundStatus.REVEALED,
+)
+
+
+def make_voted_round(repos, cycle: int, winning_number: str) -> RoundRecord:
+    """A round that actually lived through its lifecycle, with one real vote
+    cast along the way, then resolved.
+
+    make_round's straight-to-REVEALED shortcut can't carry a vote: both
+    adapters refuse a commit_entry() once a round is no longer accepting
+    entries (the in-memory check inline, Postgres's
+    submissions_round_must_be_accepting trigger) — a round has to genuinely
+    be OPEN for the vote to land, so this builds one the slow way instead.
+    """
+    rounds, _, submissions = repos
+    rec = make_round(rounds, status=RoundStatus.OPEN, cycle=cycle)
+    run(submissions.commit_entry(rec.round_id, new_user(repos), "123", 1, False, None))
+    for to in _TO_REVEALED:
+        rec = run(rounds.transition(rec.round_id, rec.status, to))
+    run(rounds.record_resolution(rec.round_id, winning_number))
+    return replace(rec, winning_number=winning_number)
+
+
 # ── the adapters actually implement the protocols ───────────────────
 def test_adapters_satisfy_their_protocols(repos):
     """Structural check only — runtime_checkable verifies method NAMES, not
@@ -163,9 +190,9 @@ def test_live_excludes_revealed_and_voided(repos):
 def test_history_orders_revealed_rounds_newest_first(repos):
     rounds, _, _ = repos
     make_round(rounds, status=RoundStatus.OPEN, cycle=1)
-    two = make_round(rounds, status=RoundStatus.REVEALED, cycle=2, winning_number="123")
+    two = make_voted_round(repos, cycle=2, winning_number="123")
     make_round(rounds, status=RoundStatus.VOIDED, cycle=3)
-    four = make_round(rounds, status=RoundStatus.REVEALED, cycle=4, winning_number="456")
+    four = make_voted_round(repos, cycle=4, winning_number="456")
     assert [r.round_id for r in run(rounds.history(None, 10))] == [four.round_id, two.round_id]
 
 
@@ -174,27 +201,33 @@ def test_history_excludes_revealed_rounds_missing_a_winning_number(repos):
     services.sealing.SealingService.finalize closes) has no result to show —
     same treatment as VOIDED, not a broken row."""
     rounds, _, _ = repos
-    one = make_round(rounds, status=RoundStatus.REVEALED, cycle=1, winning_number="789")
+    one = make_voted_round(repos, cycle=1, winning_number="789")
     make_round(rounds, status=RoundStatus.REVEALED, cycle=2)  # no winning_number
     assert [r.round_id for r in run(rounds.history(None, 10))] == [one.round_id]
 
 
+def test_history_excludes_rounds_nobody_voted_in(repos):
+    """A round that resolves with zero votes cast has no real result to show:
+    engine.rank.winning_number's own tie-break still returns a number for an
+    all-zero count vector — the degenerate (0, 1, 2) — but it isn't a real
+    outcome, so it must not appear in the History tab."""
+    rounds, _, _ = repos
+    quiet = make_round(rounds, status=RoundStatus.REVEALED, cycle=1, winning_number="012")
+    voted = make_voted_round(repos, cycle=2, winning_number="345")
+    assert [r.round_id for r in run(rounds.history(None, 10))] == [voted.round_id]
+    assert quiet.round_id not in [r.round_id for r in run(rounds.history(None, 10))]
+
+
 def test_history_before_cycle_cursor_is_strictly_less_than(repos):
     rounds, _, _ = repos
-    recs = [
-        make_round(rounds, status=RoundStatus.REVEALED, cycle=c, winning_number="123")
-        for c in (1, 2, 3)
-    ]
+    recs = [make_voted_round(repos, cycle=c, winning_number="123") for c in (1, 2, 3)]
     assert [r.round_id for r in run(rounds.history(3, 10))] == [recs[1].round_id, recs[0].round_id]
     assert run(rounds.history(1, 10)) == []
 
 
 def test_history_respects_limit(repos):
     rounds, _, _ = repos
-    recs = [
-        make_round(rounds, status=RoundStatus.REVEALED, cycle=c, winning_number="123")
-        for c in range(1, 6)
-    ]
+    recs = [make_voted_round(repos, cycle=c, winning_number="123") for c in range(1, 6)]
     page = run(rounds.history(None, 2))
     assert [r.round_id for r in page] == [recs[4].round_id, recs[3].round_id]
 
