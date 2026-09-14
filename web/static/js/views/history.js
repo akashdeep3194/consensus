@@ -30,6 +30,13 @@ export function createHistory(getHandle) {
     }
   }
 
+  function errorHtml() {
+    return `<div class="blind">
+      <div class="blind__head">Couldn't load history</div>
+      <p class="note note--quiet">A network hiccup, probably — open the History tab again to retry.</p>
+    </div>`;
+  }
+
   function listHtml() {
     if (state.rounds.length === 0) {
       return `<div class="blind">
@@ -98,15 +105,23 @@ export function createHistory(getHandle) {
 
   return {
     /** Fetches the first page once, the first time History is opened —
-     * never again, since past rounds don't change under the viewer. */
+     * never again, since past rounds don't change under the viewer. `loaded`
+     * only flips once that fetch actually succeeds, so a failed attempt
+     * (a network blip, a 500) leaves the next tab click free to retry
+     * instead of leaving History silently and permanently blank. */
     async activate() {
       if (state.loaded) return;
-      state.loaded = true;
-      const page = await api.history();
-      await attachMyResults(page.rounds);
-      state.rounds = page.rounds;
-      state.nextBeforeCycle = page.next_before_cycle;
-      renderList();
+      try {
+        const page = await api.history();
+        await attachMyResults(page.rounds);
+        state.rounds = page.rounds;
+        state.nextBeforeCycle = page.next_before_cycle;
+        state.loaded = true;
+        renderList();
+      } catch {
+        title.textContent = "History";
+        body.innerHTML = errorHtml();
+      }
     },
   };
 }
