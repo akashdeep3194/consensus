@@ -285,3 +285,12 @@ def test_my_season_and_results_reflect_a_scored_round(client):
     if successor != rid:
         empty = client.get(f"/api/me/results?round_ids={successor}", **who).json()
         assert empty == []
+
+
+def test_my_results_rejects_a_malformed_round_id(client):
+    """round_ids is parsed by hand (it's a comma-separated list, not a single
+    UUID path param FastAPI can validate on its own) — a bad id must come
+    back as a clean 422, not an unhandled 500."""
+    who = sign_in(client, handle())
+    resp = client.get("/api/me/results?round_ids=not-a-uuid", **who)
+    assert resp.status_code == 422

@@ -406,7 +406,10 @@ async def my_results(round_ids: str, user_id: UUID = Depends(current_user)):  # 
     simply one the caller never entered, not an error.
     """
     # cap matches /api/rounds/history's own page-size ceiling
-    ids = [UUID(r) for r in round_ids.split(",") if r][:100]
+    try:
+        ids = [UUID(r) for r in round_ids.split(",") if r][:100]
+    except ValueError as exc:
+        raise HTTPException(422, f"malformed round_id: {exc}") from exc
     rows = await C().pool.fetch(
         """SELECT round_id, tier, points FROM round_results
            WHERE user_id = $1 AND round_id = ANY($2::uuid[])""",
