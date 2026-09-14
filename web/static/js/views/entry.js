@@ -48,12 +48,16 @@ export function createEntry({ onDraftChange, onGoRoom }) {
     emit();
   };
 
-  /** The pad's own ⌫ key: undo the most recently placed digit, wherever it
-   * landed. Complements tapping a specific slot — this is the fast, no-look
-   * "I typed the wrong one" undo a phone keypad trains you to expect. */
+  /** The pad's own ⌫ key: clears the rightmost filled slot. Complements
+   * tapping a specific slot — this is the fast, no-look "I typed the wrong
+   * one" undo a phone keypad trains you to expect. Scans `local.slate`
+   * itself, not `placed()` — that's a filtered, gap-free view of it, so an
+   * index into one is not a valid index into the other once a slot in the
+   * middle has been tapped-cleared out of order. */
   const backspace = () => {
-    const last = placed().length - 1;
-    if (last >= 0) clearSlot(last);
+    for (let i = local.slate.length - 1; i >= 0; i--) {
+      if (local.slate[i] !== null) { clearSlot(i); return; }
+    }
   };
 
   const slateKeys = createKeypad(
