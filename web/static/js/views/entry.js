@@ -23,6 +23,11 @@ const CLOSED_COPY = {
 export function createEntry({ onDraftChange, onGoRoom }) {
   const local = { slate: [null, null, null], vote: null };
   let round = null, entry = null, step = "slate";
+  // Editing a placed guess or vote from Review reopens the very same
+  // step-slate/step-vote card as a floating popup rather than a second
+  // implementation of the same keypad — `step` itself stays "review" the
+  // whole time, so the receipt keeps updating live underneath it.
+  let popup = null; // null | "slate" | "vote"
 
   const accepting = () => !!round && ACCEPTING.has(round.status);
   // Once the round has committed this entry — normally only once it has
@@ -75,10 +80,19 @@ export function createEntry({ onDraftChange, onGoRoom }) {
   on($("toVote"),      "click", () => goto("vote"));
   on($("backToSlate"), "click", () => goto("slate"));
   on($("toReview"),    "click", () => goto("review"));
-  on($("edit"),        "click", () => goto("slate"));
   on($("viewRoom"),    "click", () => onGoRoom());
 
+  on($("receipt"), "click", (event) => {
+    const btn = event.target.closest("[data-edit]");
+    if (btn) openPopup(btn.dataset.edit);
+  });
+  on($("slateDone"),     "click", closePopup);
+  on($("voteDone"),      "click", closePopup);
+  on($("modalBackdrop"), "click", closePopup);
+
   function goto(next) { step = next; paint(); }
+  function openPopup(which) { popup = which; paint(); }
+  function closePopup() { popup = null; paint(); }
 
   function emit() {
     onDraftChange({
@@ -93,25 +107,37 @@ export function createEntry({ onDraftChange, onGoRoom }) {
 
   /** Digit keys and backspace, forwarded by the router while Play is open. */
   function handleKey(key) {
+    if (popup && key === "Escape") { closePopup(); return; }
     if (!editable()) return;
-    if (step === "slate") {
+    const active = popup || step;   // the popup's card, when one is open
+    if (active === "slate") {
       if (/^[0-9]$/.test(key)) keyFor($("slateKeys"), key)?.click();
       if (key === "Backspace") backspace();
-    } else if (step === "vote" && /^[0-9]$/.test(key)) {
+    } else if (active === "vote" && /^[0-9]$/.test(key)) {
       keyFor($("voteKeys"), key)?.click();
     }
   }
 
   // ── painting ────────────────────────────────────────────────────────────
+  const PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+    </svg>`;
+
   function receipt(node) {
     const slate = complete() ? placed().join("  ") : "—";
+    // No pencil once nothing here can change any more (round closed, or
+    // this entry already committed) — closedReceipt always hits this path.
+    const pencil = (which) => !editable() ? "" : `
+      <button class="receipt__edit" type="button" data-edit="${which}" aria-label="Edit ${which}">${PENCIL}</button>`;
     node.innerHTML = `
       <div class="receipt__row">
-        <span class="label">Slate</span><span class="receipt__v">${esc(slate)}</span>
+        <span class="label">Guess</span>
+        <div class="receipt__main"><span class="receipt__v">${esc(slate)}</span>${pencil("slate")}</div>
       </div>
       <div class="receipt__row">
         <span class="label">Vote</span>
-        <span class="receipt__v">${local.vote ?? "—"}</span>
+        <div class="receipt__main"><span class="receipt__v">${local.vote ?? "—"}</span>${pencil("vote")}</div>
       </div>
       ${entry?.committed ? `
       <div class="receipt__row">
@@ -137,7 +163,6 @@ export function createEntry({ onDraftChange, onGoRoom }) {
     receipt($("receipt"));
     $("reviewTitle").textContent = "Your entry";
     $("reviewSub").textContent = "Autosaved. Edit it freely until entries close.";
-    show($("edit"), editable());
 
     const eligible = mandateEligibleNow();
     const left = until(round.mandate_deadline);
@@ -169,7 +194,12 @@ export function createEntry({ onDraftChange, onGoRoom }) {
   }
 
   function paint() {
-    STEPS.forEach((name) => show($(`step-${name}`), name === step));
+    // A popup card renders on top of Review rather than instead of it —
+    // step itself never leaves "review" while one is open.
+    STEPS.forEach((name) => show($(`step-${name}`), name === step || name === popup));
+    $("step-slate").classList.toggle("card--popup", popup === "slate");
+    $("step-vote").classList.toggle("card--popup", popup === "vote");
+    show($("modalBackdrop"), !!popup);
 
     // `full` only stops new digits from being picked; it never disables ⌫ —
     // clearing one to re-rank is exactly what you want with all three set.
@@ -185,7 +215,16 @@ export function createEntry({ onDraftChange, onGoRoom }) {
       ? "Tap a slot, or ⌫, to clear and re-rank."
       : "Tap a digit to place it. Tap a slot, or ⌫, to clear it.";
 
+    // The first-time flow's own nav sits alongside a popup-only Done button;
+    // exactly one set is ever visible, since only one of the two cards can
+    // be showing at a time either way.
+    show($("toVote"), !popup);
+    show($("slateDone"), popup === "slate");
     $("toVote").disabled = !complete();
+
+    show($("backToSlate"), !popup);
+    show($("toReview"), !popup);
+    show($("voteDone"), popup === "vote");
     $("toReview").disabled = local.vote === null;
 
     if (step === "review") paintReview();
@@ -209,8 +248,10 @@ export function createEntry({ onDraftChange, onGoRoom }) {
         local.slate = [slate[0] ?? null, slate[1] ?? null, slate[2] ?? null];
         local.vote = entry?.vote ?? null;
         step = resume();
+        popup = null;    // a real round change outranks whatever was open
       } else if (step !== "closed" && (!accepting() || entry?.committed)) {
         step = "closed";
+        popup = null;
       }
       paint();
     },

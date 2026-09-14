@@ -170,8 +170,36 @@
   padding-block: var(--s4); border-bottom: 1px solid var(--line);
 }
 .receipt__row:last-child { border-bottom: 0; }
+.receipt__main { display: flex; align-items: baseline; gap: var(--s3); }
 .receipt__v { font-size: 26px; font-weight: var(--w-light); letter-spacing: .18em; color: var(--ink); }
 .receipt__v--quiet { font-size: var(--t-lead); color: var(--ink-2); letter-spacing: .06em; }
+
+/* A generously padded, unmissable tap target — editing a placed guess or
+   vote is exactly the moment a thumb shouldn't have to aim carefully. */
+.receipt__edit {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0; flex: none;
+  border: 1px solid var(--line-2); border-radius: var(--radius);
+  background: none; color: var(--ink-3); cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.receipt__edit:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-wash); }
+.receipt__edit svg { width: 16px; height: 16px; }
+
+/* ── In-place edit popup ────────────────────────────────────────────────── */
+/* The slate/vote pencils reopen the very same step-slate/step-vote card the
+   first-time flow uses — same keypad, same autosave, same blocked states —
+   just presented as a floating layer over Review instead of replacing it,
+   so editing one placed digit never means leaving the summary behind. */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgb(0 0 0 / .5);
+  z-index: 40; backdrop-filter: blur(1px);
+}
+.card--popup {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 41; width: min(92vw, 420px); max-height: 88vh; overflow-y: auto;
+  box-shadow: var(--shadow);
+}
 
 /* ── Controls ───────────────────────────────────────────────────────────── */
 .btn {

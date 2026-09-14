@@ -30,11 +30,11 @@ const tiers = (histogram, mine) => TIERS.map((tier) => {
 
 const scorecard = (mine) => !mine ? "" : `
   <div class="scorecard">
-    ${stat("Your slate", mine.prediction.split("").join(" "))}
+    ${stat("Your guess", mine.prediction.split("").join(" "))}
     ${stat("Outcome", mine.tier, true)}
     ${stat("Points", `+${mine.points}`)}
     ${stat("Your vote", `${mine.vote} — finished ${ordinal(mine.vote_finished)}`)}
-    ${stat("Slate commanded", pct(mine.vote_share))}
+    ${stat("Guess commanded", pct(mine.vote_share))}
     ${stat("Mandate rank", mine.mandate_rank ? `#${mine.mandate_rank}` : "—")}
   </div>`;
 
@@ -47,7 +47,7 @@ const mandateBoard = (rows, handle) => !rows.length ? "" : `
         digits drew the same total are separated by getting the order right.</p>
     </header>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Player</th><th>Slate</th><th>Score</th>
+      <thead><tr><th>#</th><th>Player</th><th>Guess</th><th>Score</th>
         <th>Commanded</th><th>Outcome</th></tr></thead>
       <tbody>${rows.map((p) => `
         <tr class="${p.handle === handle ? "is-me" : ""}">

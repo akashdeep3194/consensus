@@ -85,10 +85,12 @@
     <!-- ── play ─────────────────────────────────────────────────────── -->
     <section class="view" id="view-play">
 
+      <div class="modal-backdrop" id="modalBackdrop" hidden></div>
+
       <div class="card" id="step-slate">
         <header class="step__head">
           <div class="label">Step 1 of 2 — your prediction</div>
-          <h2 class="step__title">Pick your slate</h2>
+          <h2 class="step__title">Make your guess</h2>
           <p class="step__sub">Three digits, ranked. Which three finish top, and in
             what order? Order is scored, so first place is worth the most.</p>
         </header>
@@ -106,7 +108,8 @@
         <div class="keypad" id="slateKeys"></div>
         <p class="note note--quiet" id="slateHint">Tap a digit to place it. Tap a slot, or ⌫, to clear it.</p>
         <div class="step__foot">
-          <button class="btn btn--primary" id="toVote" type="button" disabled>Next</button>
+          <button class="btn btn--primary" id="toVote" type="button" disabled>Proceed to vote</button>
+          <button class="btn btn--primary" id="slateDone" type="button" hidden>Done</button>
           <span class="status" id="slateStatus"></span>
         </div>
       </div>
@@ -117,14 +120,15 @@
           <h2 class="step__title">Cast your vote</h2>
           <p class="step__sub">One digit. This is the part that actually moves the
             count — everyone's votes decide the number. It does not have to be on
-            your slate. The room's tally only refreshes every few minutes, but
+            your guess. The room's tally only refreshes every few minutes, but
             your vote is saved the moment you pick it.</p>
         </header>
         <div class="keypad keypad--lg" id="voteKeys"></div>
         <div class="leaders" id="leaders"></div>
         <div class="step__foot">
           <button class="btn" id="backToSlate" type="button">Back</button>
-          <button class="btn btn--primary" id="toReview" type="button" disabled>Review</button>
+          <button class="btn btn--primary" id="toReview" type="button" disabled>Submit</button>
+          <button class="btn btn--primary" id="voteDone" type="button" hidden>Done</button>
           <span class="status" id="voteStatus"></span>
         </div>
       </div>
@@ -137,7 +141,6 @@
         <div class="receipt" id="receipt"></div>
         <p class="note" id="mandnote"></p>
         <div class="step__foot">
-          <button class="btn btn--primary" id="edit" type="button">Edit</button>
           <button class="btn btn--ghost" id="viewRoom" type="button">View the room</button>
           <span class="status" id="status"></span>
         </div>
