@@ -382,10 +382,24 @@ async def health():
 
 
 # ── static console ─────────────────────────────────────────────────────────
+# No build step, no hashed/versioned filenames — every JS/CSS file is served
+# at the same URL forever, so without an explicit Cache-Control a browser's
+# own heuristic freshness guess is what decides whether it ever notices a
+# deploy. `no-cache` doesn't stop caching — it just forces a revalidation
+# round-trip (If-None-Match) on every load, a cheap 304 when nothing changed
+# and an actual fresh copy the moment something did, deploy or not.
 
-app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
+
+class RevalidatedStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["cache-control"] = "no-cache"
+        return response
+
+
+app.mount("/static", RevalidatedStaticFiles(directory=WEB / "static"), name="static")
 
 
 @app.get("/")
 async def console():
-    return FileResponse(WEB / "index.html")
+    return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-cache"})
