@@ -38,6 +38,9 @@ body {
      silently pushing the far edge off-screen with no scrollbar to reveal
      it. This is the actual backstop; the fix below is the root cause. */
   overflow-x: hidden;
+  /* Clearance above the topbar so it never sits flush against the browser's
+     own chrome — nothing rendered up there would have room to breathe. */
+  padding-top: var(--s3);
 }
 
 /* The one place a horizontal gutter is declared. */

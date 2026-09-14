@@ -79,6 +79,14 @@
 }
 .term { border-bottom: 1px dotted var(--ink-3); cursor: help; }
 
+/* The topbar sits at the very top of the page — even with the body's own
+   padding-top, an upward-opening tooltip there has the least headroom of
+   any tip on the page. Open its tooltips downward instead, the one spot
+   with room to spare (the tabs/stage below). */
+.topbar [data-tip]:hover::after, .topbar [data-tip]:focus-visible::after {
+  top: calc(100% + 6px); bottom: auto;
+}
+
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: var(--s5); padding-block: var(--s4) 0; }
 .tab {

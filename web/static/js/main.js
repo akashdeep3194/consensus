@@ -10,6 +10,7 @@ import { createRoom } from "./views/room.js";
 import { createResult } from "./views/result.js";
 import { createHistory } from "./views/history.js";
 import { createStats } from "./views/stats.js";
+import { rulesHTML } from "./components/rules.js";
 
 const POLL_MS = 4000;
 const TICK_MS = 200;
@@ -27,6 +28,13 @@ const topbar = createTopbar();
 const room = createRoom();
 const result = createResult();
 const history = createHistory(() => state.handle);
+
+// Same copy in both places — the signed-in Rules tab and the pre-login gate
+// below the sign-in card — so a visitor can read it before ever signing in.
+// Static and handle-independent, so this runs once, unconditionally, here.
+$("rules-mount").innerHTML = rulesHTML();
+$("gate-rules-mount").innerHTML = rulesHTML();
+
 // Unlike the views above, its chip is injected into #who by boot() itself
 // (only once signed in) rather than existing in index.html from page load,
 // so it can't bind to that element until boot() has actually created it.
