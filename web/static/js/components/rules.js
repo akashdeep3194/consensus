@@ -75,13 +75,14 @@ export function rulesHTML() {
       </ul>
 
       <h3>The Mandate board</h3>
-      <p>A separate board, open only to guesses locked in during the first half
-        of the round. It ranks by
+      <p>A separate <i>rank</i>, not points — it doesn't add to your total.
+        Open only to guesses locked in during the first half of the round, it
+        ranks those early guesses against each other by
         <code>3×(votes for your 1st) + 2×(votes for your 2nd) + 1×(votes for your 3rd)</code>
-        — so in the example above, guessing <b>725</b> outscores guessing
-        <b>572</b> here too, even though both are worth the same Trifecta/Boxed
-        tier once order stops mattering. Getting the order right is worth real
-        points on this board specifically.</p>
+        — so in the example above, guessing <b>725</b> outranks guessing
+        <b>572</b> here too, even though both land in the same Trifecta/Boxed
+        tier for scoring purposes once order stops mattering. Getting the
+        order right, and calling it early, is what this board rewards.</p>
     </div>
   `;
 }
